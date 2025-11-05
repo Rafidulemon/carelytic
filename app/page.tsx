@@ -73,6 +73,27 @@ const features = [
   },
 ];
 
+const doctorQuotes = [
+  {
+    name: "Dr. Nusrat Hossain",
+    role: "Consultant Cardiologist, Dhaka Medical College",
+    quote:
+      "Carelytic delivers the kind of concise report summaries I want my patients to carry into every consultation.",
+  },
+  {
+    name: "Prof. Tanvir Ahmed",
+    role: "Head of Pathology, Chattogram General Hospital",
+    quote:
+      "The AI-highlighted risks align closely with our lab interpretations, helping us prioritise follow-up cases faster.",
+  },
+  {
+    name: "Dr. Mitali Das",
+    role: "Family Physician, Sylhet",
+    quote:
+      "I’ve seen anxiety drop when patients arrive with Carelytic insights—it bridges the language gap of medical reports.",
+  },
+];
+
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-slate-50/80">
@@ -174,6 +195,40 @@ export default function HomePage() {
                 title={feature.title}
                 description={feature.description}
               />
+            ))}
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-6xl px-6 pb-24 xl:px-8">
+          <div className="flex flex-col items-center text-center">
+            <span className="rounded-full bg-slate-100 px-4 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Doctors trust Carelytic
+            </span>
+            <h2 className="mt-3 text-3xl font-bold text-slate-900">Voices from Bangladeshi clinicians</h2>
+            <p className="mt-2 max-w-2xl text-sm text-slate-600 sm:text-base">
+              Medical experts across Bangladesh use Carelytic to empower clearer patient conversations and faster clinical
+              decisions.
+            </p>
+          </div>
+          <div className="mt-10 grid gap-6 md:grid-cols-3">
+            {doctorQuotes.map((doctor) => (
+              <figure
+                key={doctor.name}
+                className="flex h-full flex-col rounded-3xl border border-slate-100 bg-white/95 p-6 text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-gradient text-sm font-semibold uppercase text-white shadow-soft">
+                  {doctor.name
+                    .split(" ")
+                    .map((part) => part[0])
+                    .join("")
+                    .slice(0, 2)}
+                </div>
+                <blockquote className="mt-4 flex-1 text-sm leading-relaxed text-slate-600">“{doctor.quote}”</blockquote>
+                <figcaption className="mt-5">
+                  <p className="text-sm font-semibold text-slate-900">{doctor.name}</p>
+                  <p className="text-xs uppercase tracking-wide text-slate-400">{doctor.role}</p>
+                </figcaption>
+              </figure>
             ))}
           </div>
         </section>

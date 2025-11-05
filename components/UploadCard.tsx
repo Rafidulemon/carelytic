@@ -1,7 +1,8 @@
 "use client";
 
 import type { ChangeEvent, DragEvent } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "./AuthProvider";
 
 type AnalysisStage = "idle" | "processing" | "complete";
 
@@ -42,15 +43,24 @@ const mockAnalysis: AnalysisResult[] = [
 export default function UploadCard() {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const analysisTimer = useRef<NodeJS.Timeout | null>(null);
+  const { user, addHistory, consumeCredits, addCredits } = useAuth();
   const [dragActive, setDragActive] = useState(false);
   const [stage, setStage] = useState<AnalysisStage>("idle");
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [results, setResults] = useState<AnalysisResult[]>([]);
+  const historyLoggedRef = useRef(false);
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [paymentState, setPaymentState] = useState<"idle" | "processing" | "success" | "failed">("idle");
+  const [paymentMessage, setPaymentMessage] = useState("");
 
   const reset = useCallback(() => {
     setStage("idle");
     setSelectedFile(null);
     setResults([]);
+    historyLoggedRef.current = false;
+    setIsUnlocked(false);
+    setPaymentState("idle");
+    setPaymentMessage("");
     if (analysisTimer.current) {
       clearTimeout(analysisTimer.current);
     }
@@ -59,6 +69,7 @@ export default function UploadCard() {
   const simulateAnalysis = useCallback((file: File) => {
     setSelectedFile(file.name);
     setStage("processing");
+    historyLoggedRef.current = false;
 
     if (analysisTimer.current) {
       clearTimeout(analysisTimer.current);
@@ -101,6 +112,60 @@ export default function UploadCard() {
     [handleFiles]
   );
 
+  const reportCostBDT = 10;
+  const reportCredits = 10;
+  const hasCredits = useMemo(() => (user?.credits ?? 0) >= reportCredits, [user?.credits]);
+
+  const unlockWithCredits = () => {
+    if (!user) {
+      setPaymentState("failed");
+      setPaymentMessage("Please log in or create an account to use credits.");
+      return;
+    }
+    const ok = consumeCredits(reportCredits);
+    if (ok) {
+      setPaymentState("success");
+      setPaymentMessage(`10 credits redeemed. Report unlocked.`);
+      setIsUnlocked(true);
+    } else {
+      setPaymentState("failed");
+      setPaymentMessage("Not enough credits. Purchase a subscription or pay as you go.");
+    }
+  };
+
+  const simulatePayment = (method: "bkash" | "nagad" | "card") => {
+    setPaymentState("processing");
+    setPaymentMessage(
+      method === "card"
+        ? "Processing secure card payment..."
+        : `Redirecting to ${method === "bkash" ? "bKash" : "Nagad"}...`
+    );
+    if (!user) {
+      // simulate adding guest payment? We'll allow pay-as-you-go w/out login but prompt sign-in
+      setTimeout(() => {
+        setPaymentState("failed");
+        setPaymentMessage("Please log in to complete payment and view your report.");
+      }, 1200);
+      return;
+    }
+    setTimeout(() => {
+      setPaymentState("success");
+      setPaymentMessage("Payment successful. Report unlocked!");
+      setIsUnlocked(true);
+    }, 1500);
+  };
+
+  const addTopUpCredits = (amount: number) => {
+    if (!user) {
+      setPaymentState("failed");
+      setPaymentMessage("Please log in to purchase subscription credits.");
+      return;
+    }
+    addCredits(amount);
+    setPaymentState("success");
+    setPaymentMessage(`Added ${amount} credits to your balance.`);
+  };
+
   useEffect(
     () => () => {
       if (analysisTimer.current) {
@@ -109,6 +174,31 @@ export default function UploadCard() {
     },
     []
   );
+
+  useEffect(() => {
+    if (stage !== "complete" || !selectedFile || results.length === 0 || historyLoggedRef.current) {
+      return;
+    }
+    if (!user) {
+      historyLoggedRef.current = true;
+      return;
+    }
+
+    const attentionItems = results.filter((entry) => entry.status === "Attention");
+    const summary =
+      attentionItems.length > 0
+        ? `${attentionItems.length} value${attentionItems.length === 1 ? "" : "s"} flagged for follow-up.`
+        : "All metrics remain within the expected ranges.";
+
+    addHistory({
+      id: `report-${Date.now()}`,
+      title: selectedFile.replace(/\.[^/.]+$/, "").slice(0, 48) || "Uploaded report",
+      date: new Date().toISOString().slice(0, 10),
+      summary,
+      highlights: results.slice(0, 3).map((entry) => `${entry.metric}: ${entry.value} (${entry.status})`),
+    });
+    historyLoggedRef.current = true;
+  }, [addHistory, results, selectedFile, stage, user]);
 
   return (
     <section className="w-full rounded-3xl bg-white p-6 shadow-soft ring-1 ring-slate-100 sm:p-8">
@@ -235,8 +325,13 @@ export default function UploadCard() {
 
       {stage === "complete" && (
         <div className="mt-8">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h4 className="text-lg font-semibold text-slate-900">Report summary</h4>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h4 className="text-lg font-semibold text-slate-900">Report summary</h4>
+              <p className="text-xs text-slate-500">
+                Unlock to view AI insights. Cost: BDT {reportCostBDT} / {reportCredits} credits.
+              </p>
+            </div>
             <button
               type="button"
               className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
@@ -245,7 +340,107 @@ export default function UploadCard() {
               Analyze another
             </button>
           </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          {!isUnlocked && (
+            <div className="mt-6 grid gap-4 rounded-3xl border border-slate-100 bg-slate-50/70 p-5 sm:grid-cols-[1.1fr_1fr]">
+              <div>
+                <h5 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+                  Unlock options
+                </h5>
+                <p className="mt-2 text-sm text-slate-600">
+                  Pay-as-you-go price is <span className="font-semibold">BDT {reportCostBDT}</span>. Subscribers can
+                  redeem <span className="font-semibold">{reportCredits} credits</span> per report.
+                </p>
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={unlockWithCredits}
+                    disabled={!hasCredits}
+                    className="inline-flex items-center justify-center rounded-full bg-brand-gradient px-4 py-2 text-sm font-semibold text-white shadow-soft transition hover:-translate-y-0.5 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Unlock with credits ({reportCredits})
+                  </button>
+                  {!hasCredits && (
+                    <span className="text-xs text-amber-600">
+                      You have {user?.credits ?? 0} credits. Buy a subscription to top up.
+                    </span>
+                  )}
+                </div>
+                <div className="mt-6 space-y-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Pay BDT {reportCostBDT}</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => simulatePayment("bkash")}
+                      className="rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-600 transition hover:border-rose-300 hover:text-rose-700"
+                    >
+                      Pay with bKash
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => simulatePayment("nagad")}
+                      className="rounded-full border border-orange-200 bg-orange-50 px-4 py-2 text-sm font-semibold text-orange-600 transition hover:border-orange-300 hover:text-orange-700"
+                    >
+                      Pay with Nagad
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => simulatePayment("card")}
+                      className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+                    >
+                      Pay with card
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-slate-100 bg-white p-4 text-sm text-slate-600 shadow-sm">
+                <h6 className="text-sm font-semibold text-slate-900">Current balance</h6>
+                <p className="mt-1 text-xs text-slate-500">
+                  {user ? (
+                    <>
+                      Plan:{" "}
+                      <span className="font-semibold text-slate-700 uppercase">
+                        {user.subscriptionPlan === "payg"
+                          ? "Pay as you go"
+                          : user.subscriptionPlan === "monthly"
+                            ? "Monthly subscriber"
+                            : "Yearly subscriber"}
+                      </span>
+                    </>
+                  ) : (
+                    "Sign in to track credits and history."
+                  )}
+                </p>
+                <p className="mt-3 text-3xl font-bold text-slate-900">
+                  {user ? user.credits : 0}
+                  <span className="ml-2 text-sm font-semibold text-slate-500">credits</span>
+                </p>
+                <p className="mt-2 text-xs text-slate-500">
+                  Need credits?{" "}
+                  <button
+                    type="button"
+                    className="font-semibold text-slate-900 underline"
+                    onClick={() => addTopUpCredits(120)}
+                  >
+                    Try monthly subscription (adds 120)
+                  </button>
+                </p>
+                {paymentMessage && (
+                  <p
+                    className={`mt-3 text-xs font-semibold ${
+                      paymentState === "success"
+                        ? "text-emerald-600"
+                        : paymentState === "processing"
+                          ? "text-slate-500"
+                          : "text-rose-600"
+                    }`}
+                  >
+                    {paymentMessage}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+          <div className={`mt-4 grid gap-3 sm:grid-cols-2 ${!isUnlocked ? "pointer-events-none opacity-50 blur-[1px]" : ""}`}>
             {results.map((item) => (
               <article
                 key={item.metric}
