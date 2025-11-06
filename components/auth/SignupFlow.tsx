@@ -5,6 +5,7 @@ import type { BloodGroup } from "@/components/AuthProvider";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useLanguage } from "@/components/LanguageProvider";
 
 const EMAIL_REGEX =
   /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z]{2,})+$/;
@@ -26,9 +27,61 @@ function normalizeBangladeshPhone(phone: string) {
   return null;
 }
 
+interface SignupCopy {
+  badge: string;
+  heading: string;
+  intro: string;
+  progress: string;
+  phone: {
+    label: string;
+    placeholder: string;
+    errorInvalid: string;
+    send: string;
+    sending: string;
+    cta: string;
+    loginLink: string;
+  };
+  otp: {
+    heading: string;
+    resendInfo: string;
+    label: string;
+    edit: string;
+    verify: string;
+    verifying: string;
+    resendCta: string;
+    resend: string;
+    errorCode: string;
+  };
+  details: {
+    fullName: { label: string; placeholder: string; error: string };
+    email: { label: string; placeholder: string; error: string };
+    bloodGroup: { label: string; placeholder: string; error: string };
+    diabetic: { label: string; yes: string; no: string };
+    hypertension: { label: string; yes: string; no: string };
+    conditionsError: string;
+    healthNote: string;
+    consent: { text: string; error: string };
+    verifyPhoneError: string;
+  };
+  buttons: {
+    back: string;
+    create: string;
+    creating: string;
+  };
+  sidebar: {
+    badge: string;
+    heading: string;
+    body: string;
+    featuresTitle: string;
+    features: string[];
+  };
+}
+
 export default function SignupFlow() {
   const { user, completeSignup } = useAuth();
   const router = useRouter();
+  const { getCopy } = useLanguage();
+  const signup = getCopy<SignupCopy>("signup");
   const [step, setStep] = useState<FlowStep>("phone");
   const [phone, setPhone] = useState("");
   const [phoneError, setPhoneError] = useState("");
@@ -54,14 +107,17 @@ export default function SignupFlow() {
 
   useEffect(() => {
     if (step !== "otp" || timer === 0) return;
-    const countdown = setInterval(() => setTimer((value) => Math.max(0, value - 1)), 1000);
+    const countdown = setInterval(
+      () => setTimer((value) => Math.max(0, value - 1)),
+      1000
+    );
     return () => clearInterval(countdown);
   }, [step, timer]);
 
   const handleSendOtp = () => {
     const normalized = normalizeBangladeshPhone(phone.trim());
     if (!normalized) {
-      setPhoneError("Enter a valid Bangladeshi phone number (e.g. 018XXXXXXXX).");
+      setPhoneError(signup.phone.errorInvalid);
       return;
     }
     setPhoneError("");
@@ -104,7 +160,7 @@ export default function SignupFlow() {
   const handleVerifyOtp = () => {
     const code = otpValues.join("");
     if (code.length !== OTP_LENGTH) {
-      setOtpError("Enter the six-digit code sent to your phone.");
+      setOtpError(signup.otp.errorCode);
       return;
     }
     setLoading(true);
@@ -116,27 +172,27 @@ export default function SignupFlow() {
 
   const handleCreateAccount = () => {
     if (fullName.trim().length < 3) {
-      setDetailsError("Enter your full name so clinicians know who the report belongs to.");
+      setDetailsError(signup.details.fullName.error);
       return;
     }
     if (email && !EMAIL_REGEX.test(email.trim())) {
-      setDetailsError("Enter a valid email address or leave it blank.");
+      setDetailsError(signup.details.email.error);
       return;
     }
     if (!consent) {
-      setDetailsError("We need your consent to create your Carelytic account.");
+      setDetailsError(signup.details.consent.error);
       return;
     }
     if (!normalizedPhone) {
-      setDetailsError("Please verify your phone number again to finish signing up.");
+      setDetailsError(signup.details.verifyPhoneError);
       return;
     }
     if (!bloodGroup) {
-      setDetailsError("Select your blood group so we can personalise your summaries.");
+      setDetailsError(signup.details.bloodGroup.error);
       return;
     }
     if (isDiabetic === null || hasHypertension === null) {
-      setDetailsError("Let us know if you have diabetes or high blood pressure. You can update these later.");
+      setDetailsError(signup.details.conditionsError);
       return;
     }
     setDetailsError("");
@@ -149,7 +205,10 @@ export default function SignupFlow() {
         bloodGroup,
         isDiabetic,
         hasHypertension,
+        subscriptionPlan: "payg",
+        credits: 0,
       });
+
       router.replace("/account");
     }, 900);
   };
@@ -160,25 +219,28 @@ export default function SignupFlow() {
     return 100;
   }, [step]);
 
+  const otpResendParts = signup.otp.resendInfo.split("{{seconds}}");
+
+  const consentNodes = buildConsentNodes(signup.details.consent.text);
+
   return (
     <section className="relative mx-auto max-w-5xl overflow-hidden rounded-4xl border border-slate-100 bg-white shadow-soft">
       <div className="grid gap-0 lg:grid-cols-[1.2fr_1fr]">
         <div className="p-8 sm:p-12">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
             <span className="h-2 w-2 rounded-full bg-brand-gradient" />
-            Create your Carelytic profile
+            {signup.badge}
           </div>
           <h1 className="mt-4 text-3xl font-bold text-slate-900 sm:text-4xl">
-            Your AI health companion starts here
+            {signup.heading}
           </h1>
           <p className="mt-2 text-sm text-slate-600 sm:text-base">
-            Use your Bangladeshi mobile number to get started. We&apos;ll verify it with an OTP and collect a few
-            details to personalize your insights.
+            {signup.intro}
           </p>
 
           <div className="mt-8">
             <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-400">
-              <span>Progress</span>
+              <span>{signup.progress}</span>
               <span>{progressPercent}%</span>
             </div>
             <div className="mt-2 h-2.5 rounded-full bg-slate-100">
@@ -198,31 +260,40 @@ export default function SignupFlow() {
               }}
             >
               <div>
-                <label className="text-sm font-semibold text-slate-700">Bangladeshi phone number</label>
+                <label className="text-sm font-semibold text-slate-700">
+                  {signup.phone.label}
+                </label>
                 <div className="mt-2 flex items-center rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 focus-within:border-slate-300 focus-within:bg-white focus-within:ring-2 focus-within:ring-slate-200">
-                  <span className="mr-2 text-sm font-semibold text-slate-500">+880</span>
+                  <span className="mr-2 text-sm font-semibold text-slate-500">
+                    +880
+                  </span>
                   <input
                     type="tel"
                     inputMode="tel"
                     className="w-full border-0 bg-transparent text-base font-medium text-slate-800 outline-none"
-                    placeholder="19XXXXXXX"
+                    placeholder={signup.phone.placeholder}
                     value={phone}
                     onChange={(event) => setPhone(event.target.value)}
                   />
                 </div>
-                {phoneError && <p className="mt-2 text-sm text-rose-500">{phoneError}</p>}
+                {phoneError && (
+                  <p className="mt-2 text-sm text-rose-500">{phoneError}</p>
+                )}
               </div>
               <button
                 type="submit"
                 disabled={loading}
                 className="w-full rounded-full bg-brand-gradient px-6 py-3 text-sm font-semibold text-white shadow-soft transition hover:-translate-y-0.5 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70"
               >
-                {loading ? "Sending code..." : "Send OTP"}
+                {loading ? signup.phone.sending : signup.phone.send}
               </button>
               <p className="text-center text-xs text-slate-500">
-                Already have a Carelytic account?{" "}
-                <Link href="/login" className="font-semibold text-slate-900 hover:underline">
-                  Log in
+                {signup.phone.cta}{" "}
+                <Link
+                  href="/login"
+                  className="font-semibold text-slate-900 hover:underline"
+                >
+                  {signup.phone.loginLink}
                 </Link>
               </p>
             </form>
@@ -237,14 +308,22 @@ export default function SignupFlow() {
               }}
             >
               <div className="rounded-3xl border border-slate-100 bg-slate-50/70 p-4">
-                <p className="text-sm font-semibold text-slate-700">OTP sent to:</p>
-                <p className="mt-1 text-lg font-semibold text-slate-900">{normalizedPhone}</p>
+                <p className="text-sm font-semibold text-slate-700">
+                  {signup.otp.heading}
+                </p>
+                <p className="mt-1 text-lg font-semibold text-slate-900">
+                  {normalizedPhone}
+                </p>
                 <p className="mt-2 text-xs text-slate-500">
-                  Request a fresh code in <span className="font-semibold text-slate-700">{timer}s</span>.
+                  {otpResendParts[0]}
+                  <span className="font-semibold text-slate-700">{timer}</span>
+                  {otpResendParts[1] ?? ""}
                 </p>
               </div>
               <div>
-                <label className="text-sm font-semibold text-slate-700">Enter 6-digit code</label>
+                <label className="text-sm font-semibold text-slate-700">
+                  {signup.otp.label}
+                </label>
                 <div className="mt-3 flex justify-between gap-2 sm:gap-3">
                   {otpValues.map((value, index) => (
                     <input
@@ -257,12 +336,16 @@ export default function SignupFlow() {
                       maxLength={1}
                       className="h-12 w-full rounded-2xl border border-slate-200 text-center text-lg font-semibold text-slate-900 shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200"
                       value={value}
-                      onChange={(event) => handleOtpChange(index, event.target.value)}
+                      onChange={(event) =>
+                        handleOtpChange(index, event.target.value)
+                      }
                       onPaste={handleOtpPaste}
                     />
                   ))}
                 </div>
-                {otpError && <p className="mt-2 text-sm text-rose-500">{otpError}</p>}
+                {otpError && (
+                  <p className="mt-2 text-sm text-rose-500">{otpError}</p>
+                )}
               </div>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <button
@@ -275,25 +358,25 @@ export default function SignupFlow() {
                     setTimer(60);
                   }}
                 >
-                  Edit number
+                  {signup.otp.edit}
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
                   className="w-full rounded-full bg-brand-gradient px-6 py-3 text-sm font-semibold text-white shadow-soft transition hover:-translate-y-0.5 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
                 >
-                  {loading ? "Verifying..." : "Verify & continue"}
+                  {loading ? signup.otp.verifying : signup.otp.verify}
                 </button>
               </div>
               <div className="text-center text-xs text-slate-500">
-                Still waiting?{" "}
+                {signup.otp.resendCta}{" "}
                 <button
                   type="button"
                   disabled={timer > 0}
                   onClick={handleSendOtp}
                   className="font-semibold text-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Resend OTP
+                  {signup.otp.resend}
                 </button>
               </div>
             </form>
@@ -309,33 +392,43 @@ export default function SignupFlow() {
             >
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="sm:col-span-2">
-                  <label className="text-sm font-semibold text-slate-700">Full name</label>
+                  <label className="text-sm font-semibold text-slate-700">
+                    {signup.details.fullName.label}
+                  </label>
                   <input
                     type="text"
                     className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base font-medium text-slate-800 outline-none focus:border-slate-300 focus:ring-2 focus:ring-slate-200"
-                    placeholder="e.g. Ayesha Rahman"
+                    placeholder={signup.details.fullName.placeholder}
                     value={fullName}
                     onChange={(event) => setFullName(event.target.value)}
                   />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="text-sm font-semibold text-slate-700">Email (optional)</label>
+                  <label className="text-sm font-semibold text-slate-700">
+                    {signup.details.email.label}
+                  </label>
                   <input
                     type="email"
                     className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base font-medium text-slate-800 outline-none focus:border-slate-300 focus:ring-2 focus:ring-slate-200"
-                    placeholder="you@example.com"
+                    placeholder={signup.details.email.placeholder}
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-semibold text-slate-700">Blood group</label>
+                  <label className="text-sm font-semibold text-slate-700">
+                    {signup.details.bloodGroup.label}
+                  </label>
                   <select
                     className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base font-medium text-slate-800 outline-none focus:border-slate-300 focus:ring-2 focus:ring-slate-200"
                     value={bloodGroup}
-                    onChange={(event) => setBloodGroup(event.target.value as BloodGroup)}
+                    onChange={(event) =>
+                      setBloodGroup(event.target.value as BloodGroup | "")
+                    }
                   >
-                    <option value="">Select your blood group</option>
+                    <option value="">
+                      {signup.details.bloodGroup.placeholder}
+                    </option>
                     <option value="A+">A+</option>
                     <option value="A-">A-</option>
                     <option value="B+">B+</option>
@@ -346,69 +439,44 @@ export default function SignupFlow() {
                     <option value="O-">O-</option>
                   </select>
                 </div>
-                <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-                  <p className="text-sm font-semibold text-slate-700">Chronic conditions</p>
-                  <div className="space-y-2 text-sm text-slate-600">
-                    <div className="flex flex-col gap-2">
-                      <span className="font-semibold text-slate-700">Diabetes</span>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setIsDiabetic(true)}
-                          className={`flex-1 rounded-full border px-3 py-2 text-sm font-semibold transition ${
-                            isDiabetic === true
-                              ? "border-transparent bg-brand-gradient text-white shadow-soft"
-                              : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900"
-                          }`}
-                        >
-                          Yes
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setIsDiabetic(false)}
-                          className={`flex-1 rounded-full border px-3 py-2 text-sm font-semibold transition ${
-                            isDiabetic === false
-                              ? "border-transparent bg-brand-gradient text-white shadow-soft"
-                              : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900"
-                          }`}
-                        >
-                          No
-                        </button>
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <span className="font-semibold text-slate-700">High blood pressure</span>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setHasHypertension(true)}
-                          className={`flex-1 rounded-full border px-3 py-2 text-sm font-semibold transition ${
-                            hasHypertension === true
-                              ? "border-transparent bg-brand-gradient text-white shadow-soft"
-                              : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900"
-                          }`}
-                        >
-                          Yes
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setHasHypertension(false)}
-                          className={`flex-1 rounded-full border px-3 py-2 text-sm font-semibold transition ${
-                            hasHypertension === false
-                              ? "border-transparent bg-brand-gradient text-white shadow-soft"
-                              : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900"
-                          }`}
-                        >
-                          No
-                        </button>
-                      </div>
-                    </div>
+                <div>
+                  <label className="text-sm font-semibold text-slate-700">
+                    {signup.details.diabetic.label}
+                  </label>
+                  <div className="mt-2 flex gap-2">
+                    <ToggleButton
+                      active={isDiabetic === true}
+                      onClick={() => setIsDiabetic(true)}
+                      label={signup.details.diabetic.yes}
+                    />
+                    <ToggleButton
+                      active={isDiabetic === false}
+                      onClick={() => setIsDiabetic(false)}
+                      label={signup.details.diabetic.no}
+                    />
                   </div>
-                  <p className="text-xs text-slate-500">
-                    You can add or update more health details anytime from your account.
-                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-slate-700">
+                    {signup.details.hypertension.label}
+                  </label>
+                  <div className="mt-2 flex gap-2">
+                    <ToggleButton
+                      active={hasHypertension === true}
+                      onClick={() => setHasHypertension(true)}
+                      label={signup.details.hypertension.yes}
+                    />
+                    <ToggleButton
+                      active={hasHypertension === false}
+                      onClick={() => setHasHypertension(false)}
+                      label={signup.details.hypertension.no}
+                    />
+                  </div>
                 </div>
               </div>
+              <p className="text-xs text-slate-500">
+                {signup.details.healthNote}
+              </p>
               <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 text-sm text-slate-600 transition hover:border-slate-300 hover:bg-white">
                 <input
                   type="checkbox"
@@ -416,33 +484,25 @@ export default function SignupFlow() {
                   onChange={(event) => setConsent(event.target.checked)}
                   className="mt-1 h-4 w-4 rounded border-slate-300 accent-[var(--carelytic-blue)] focus:ring-0"
                 />
-                <span>
-                  I agree to Carelytic&apos;s{" "}
-                  <a href="#" className="font-semibold text-slate-900 hover:underline">
-                    Terms of Service
-                  </a>{" "}
-                  and{" "}
-                  <a href="#" className="font-semibold text-slate-900 hover:underline">
-                    Privacy Policy
-                  </a>{" "}
-                  and confirm that I am the owner of this phone number.
-                </span>
+                <span>{consentNodes}</span>
               </label>
-              {detailsError && <p className="text-sm text-rose-500">{detailsError}</p>}
+              {detailsError && (
+                <p className="text-sm text-rose-500">{detailsError}</p>
+              )}
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <button
                   type="button"
                   className="w-full rounded-full border border-slate-200 px-6 py-3 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900 sm:w-auto"
                   onClick={() => setStep("otp")}
                 >
-                  Back
+                  {signup.buttons.back}
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
                   className="w-full rounded-full bg-brand-gradient px-6 py-3 text-sm font-semibold text-white shadow-soft transition hover:-translate-y-0.5 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
                 >
-                  {loading ? "Creating..." : "Create account"}
+                  {loading ? signup.buttons.creating : signup.buttons.create}
                 </button>
               </div>
             </form>
@@ -450,25 +510,74 @@ export default function SignupFlow() {
         </div>
         <div className="relative hidden min-h-full flex-col justify-between bg-brand-gradient p-10 text-white lg:flex">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-white/80">Carelytic onboarding</p>
-            <h2 className="mt-4 text-3xl font-bold leading-tight">
-              Designed for patients, trusted by clinicians
-            </h2>
-            <p className="mt-3 text-sm text-white/70">
-              We verify every account with mobile OTP to ensure your medical insights stay protected and compliant with
-              Bangladeshi data standards.
+            <p className="text-sm font-semibold uppercase tracking-wide text-white/80">
+              {signup.sidebar.badge}
             </p>
+            <h2 className="mt-4 text-3xl font-bold leading-tight">
+              {signup.sidebar.heading}
+            </h2>
+            <p className="mt-3 text-sm text-white/70">{signup.sidebar.body}</p>
           </div>
           <div className="space-y-3 rounded-3xl bg-white/15 p-4 backdrop-blur">
-            <p className="text-xs uppercase tracking-wide text-white/70">What you get</p>
+            <p className="text-xs uppercase tracking-wide text-white/70">
+              {signup.sidebar.featuresTitle}
+            </p>
             <ul className="space-y-2 text-sm text-white">
-              <li>• Instant AI summaries of lab and imaging reports</li>
-              <li>• Trends and alerts tailored to Bangladeshi clinical ranges</li>
-              <li>• Shareable insights for your doctor or care circle</li>
+              {signup.sidebar.features.map((item) => (
+                <li key={item}>• {item}</li>
+              ))}
             </ul>
           </div>
         </div>
       </div>
     </section>
+  );
+}
+
+function ToggleButton({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex-1 rounded-full border px-3 py-2 text-sm font-semibold transition ${
+        active
+          ? "border-transparent bg-brand-gradient text-white shadow-soft"
+          : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function buildConsentNodes(text: string) {
+  const [beforeTerms, restTerms] = text.split("[terms]");
+  if (!restTerms) {
+    return text;
+  }
+  const [termsLabel, afterTermsRaw] = restTerms.split("[/terms]");
+  const [between, restPrivacy] = (afterTermsRaw ?? "").split("[privacy]");
+  const [privacyLabel, tail] = (restPrivacy ?? "").split("[/privacy]");
+
+  return (
+    <>
+      {beforeTerms}
+      <a href="#" className="font-semibold text-slate-900 hover:underline">
+        {termsLabel}
+      </a>
+      {between}
+      <a href="#" className="font-semibold text-slate-900 hover:underline">
+        {privacyLabel}
+      </a>
+      {tail}
+    </>
   );
 }

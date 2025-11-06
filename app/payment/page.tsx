@@ -3,14 +3,56 @@
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
 import { useAuth } from "@/components/AuthProvider";
-import { subscriptionPlans } from "@/components/subscriptionPlans";
+import { useSubscriptionPlans, type SubscriptionPlanInfo } from "@/components/subscriptionPlans";
+import { useLanguage } from "@/components/LanguageProvider";
 import { useState } from "react";
 
-const PAYMENT_OPTIONS = [
-  { id: "bkash", label: "bKash", description: "Instant mobile payment via bKash personal or merchant accounts." },
-  { id: "nagad", label: "Nagad", description: "Pay using your Nagad wallet with one-tap confirmation." },
-  { id: "card", label: "Debit/Credit Card", description: "Visa, Mastercard, and local cards accepted." },
-];
+const PAYMENT_OPTION_IDS = ["bkash", "nagad", "card"] as const;
+
+type PaymentOptionId = (typeof PAYMENT_OPTION_IDS)[number];
+
+interface PaymentCopy {
+  hero: {
+    badge: string;
+    heading: string;
+    description: string;
+    balanceLabel: string;
+    planLabel: string;
+    guestLabel: string;
+    saveCallout: {
+      title: string;
+      message: string;
+    };
+  };
+  paymentOptions: Record<PaymentOptionId, { label: string; description: string }>;
+  payg: {
+    heading: string;
+    description: string;
+    status: {
+      processingCard: string;
+      redirecting: string;
+      loginRequired: string;
+      success: string;
+    };
+    note: string;
+  };
+  subscriptions: {
+    heading: string;
+    description: string;
+    includes: string;
+    includesNone: string;
+    buy: string;
+    currentPlan: string;
+    choosePlan: string;
+    statusProcessing: string;
+    statusSuccess: string;
+    note: string;
+  };
+  faq: {
+    heading: string;
+    items: { question: string; answer: string }[];
+  };
+}
 
 export default function PaymentPage() {
   return (
@@ -27,37 +69,46 @@ export default function PaymentPage() {
   );
 }
 
+function usePaymentCopy() {
+  const { getCopy } = useLanguage();
+  return getCopy<PaymentCopy>("payment");
+}
+
 function Hero() {
   const { user } = useAuth();
+  const payment = usePaymentCopy();
+  const plans = useSubscriptionPlans();
+  const { t } = useLanguage();
+  const creditsLabel = t("common.credits.label");
+
+  const currentPlanTitle = user
+    ? plans.find((plan) => plan.id === user.subscriptionPlan)?.title ?? t("plans.payg.title")
+    : payment.hero.guestLabel;
+
   return (
     <section className="rounded-4xl border border-slate-100 bg-white p-8 shadow-soft sm:p-12">
-      <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Payments & pricing</span>
-      <h1 className="mt-4 text-3xl font-bold text-slate-900 sm:text-4xl">
-        Unlock insights with simple, transparent pricing
-      </h1>
-      <p className="mt-3 max-w-2xl text-sm text-slate-600 sm:text-base">
-        Every report costs <strong>BDT 10</strong> (or <strong>10 credits</strong>). Top up with monthly or yearly
-        subscriptions to save 20% and get instant access to Carelytic&apos;s AI interpretations.
-      </p>
+      <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">{payment.hero.badge}</span>
+      <h1 className="mt-4 text-3xl font-bold text-slate-900 sm:text-4xl">{payment.hero.heading}</h1>
+      <p
+        className="mt-3 max-w-2xl text-sm text-slate-600 sm:text-base"
+        dangerouslySetInnerHTML={{ __html: payment.hero.description }}
+      />
       <div className="mt-6 flex flex-wrap items-center gap-4">
         <div className="rounded-3xl border border-slate-100 bg-slate-50/70 px-6 py-4 text-sm text-slate-600">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Your current balance</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            {payment.hero.balanceLabel}
+          </p>
           <p className="mt-1 text-2xl font-bold text-slate-900">
             {user ? user.credits : 0}
-            <span className="ml-1 text-sm font-semibold text-slate-500">credits</span>
+            <span className="ml-1 text-sm font-semibold text-slate-500">{creditsLabel}</span>
           </p>
           <p className="mt-1 text-xs text-slate-500">
-            Plan:{" "}
-            <span className="font-semibold text-slate-700">
-              {user ? subscriptionPlans.find((plan) => plan.id === user.subscriptionPlan)?.title ?? "Pay as you go" : "Guest"}
-            </span>
+            {payment.hero.planLabel}: <span className="font-semibold text-slate-700">{currentPlanTitle}</span>
           </p>
         </div>
         <div className="rounded-3xl border border-emerald-100 bg-emerald-50 px-6 py-4 text-sm text-emerald-700">
-          <p className="text-xs font-semibold uppercase tracking-wide">Save with subscriptions</p>
-          <p className="mt-1">
-            Monthly plan: BDT 100 → 120 credits &nbsp;|&nbsp; Yearly plan: BDT 1,000 → 1,500 credits
-          </p>
+          <p className="text-xs font-semibold uppercase tracking-wide">{payment.hero.saveCallout.title}</p>
+          <p className="mt-1">{payment.hero.saveCallout.message}</p>
         </div>
       </div>
     </section>
@@ -66,36 +117,43 @@ function Hero() {
 
 function PayAsYouGo() {
   const { user } = useAuth();
+  const payment = usePaymentCopy();
+  const { t } = useLanguage();
+  const options = PAYMENT_OPTION_IDS.map((id) => ({ id, ...payment.paymentOptions[id] }));
   const [status, setStatus] = useState<"idle" | "processing" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
 
-  const handlePay = (method: "bkash" | "nagad" | "card") => {
+  const handlePay = (method: PaymentOptionId) => {
     setStatus("processing");
-    setMessage(
-      method === "card"
-        ? "Processing secure card payment..."
-        : `Redirecting to ${method === "bkash" ? "bKash" : "Nagad"} checkout...`
-    );
+    if (method === "card") {
+      setMessage(payment.payg.status.processingCard);
+    } else {
+      const methodLabel = payment.paymentOptions[method].label;
+      setMessage(t("payment.payg.status.redirecting", { method: methodLabel }));
+    }
     setTimeout(() => {
       if (!user) {
         setStatus("error");
-        setMessage("Please log in to complete payment and have credits automatically applied.");
+        setMessage(payment.payg.status.loginRequired);
         return;
       }
       setStatus("success");
-      setMessage("Payment successful! Your report will unlock automatically after processing.");
+      setMessage(payment.payg.status.success);
     }, 1400);
   };
 
+  const messageClass =
+    status === "success" ? "text-emerald-600" : status === "processing" ? "text-slate-500" : "text-rose-600";
+
   return (
     <section className="mt-12 rounded-4xl border border-slate-100 bg-white p-8 shadow-sm">
-      <h2 className="text-2xl font-bold text-slate-900">Pay as you go</h2>
-      <p className="mt-2 text-sm text-slate-600">
-        Ideal for ad-hoc uploads. Each unlocked report costs <strong>BDT 10</strong>. Choose your preferred Bangladeshi
-        payment method below.
-      </p>
+      <h2 className="text-2xl font-bold text-slate-900">{payment.payg.heading}</h2>
+      <p
+        className="mt-2 text-sm text-slate-600"
+        dangerouslySetInnerHTML={{ __html: payment.payg.description }}
+      />
       <div className="mt-6 grid gap-4 md:grid-cols-3">
-        {PAYMENT_OPTIONS.map((option) => (
+        {options.map((option) => (
           <article
             key={option.id}
             className="flex h-full flex-col justify-between rounded-3xl border border-slate-100 bg-slate-50/70 p-5 transition hover:-translate-y-1 hover:border-transparent hover:bg-white hover:shadow-lg"
@@ -106,45 +164,40 @@ function PayAsYouGo() {
             </div>
             <button
               type="button"
-              onClick={() => handlePay(option.id as "bkash" | "nagad" | "card")}
+              onClick={() => handlePay(option.id)}
               className="mt-4 rounded-full bg-brand-gradient px-4 py-2 text-sm font-semibold text-white shadow-soft transition hover:-translate-y-0.5 hover:shadow-lg"
             >
-              Pay BDT 10
+              {option.label}
             </button>
           </article>
         ))}
       </div>
       {message && (
-        <p
-          className={`mt-4 text-sm font-semibold ${
-            status === "success" ? "text-emerald-600" : status === "processing" ? "text-slate-500" : "text-rose-600"
-          }`}
-        >
+        <p className={`mt-4 text-sm font-semibold ${messageClass}`}>
           {message}
         </p>
       )}
-      <p className="mt-2 text-xs text-slate-500">
-        After successful payment, you&apos;ll be redirected back to Carelytic and your report unlocks instantly.
-      </p>
+      <p className="mt-2 text-xs text-slate-500">{payment.payg.note}</p>
     </section>
   );
 }
 
 function Subscriptions() {
   const { user, purchaseSubscription } = useAuth();
+  const payment = usePaymentCopy();
+  const { t } = useLanguage();
+  const plans = useSubscriptionPlans();
   const [status, setStatus] = useState<"idle" | "processing" | "success">("idle");
   const [message, setMessage] = useState("");
 
-  const handlePurchase = (planId: (typeof subscriptionPlans)[number]["id"]) => {
+  const handlePurchase = (planId: SubscriptionPlanInfo["id"]) => {
     setStatus("processing");
-    setMessage("Preparing secure payment checkout...");
+    setMessage(payment.subscriptions.statusProcessing);
     setTimeout(() => {
       purchaseSubscription(planId);
-      const selected = subscriptionPlans.find((plan) => plan.id === planId);
+      const selected = plans.find((plan) => plan.id === planId);
       setStatus("success");
-      setMessage(
-        `Subscription activated! ${selected?.credits ?? 0} credits added to your balance. Your plan renews automatically.`
-      );
+      setMessage(t("payment.subscriptions.statusSuccess", { credits: selected?.credits ?? 0 }));
     }, 1400);
   };
 
@@ -152,16 +205,21 @@ function Subscriptions() {
     <section className="mt-12 rounded-4xl border border-slate-100 bg-white p-8 shadow-sm">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Subscription bundles</h2>
-          <p className="mt-2 text-sm text-slate-600">
-            Save 20% compared to pay-as-you-go. Subscribers receive credits up front and redeem <strong>10 credits</strong>{" "}
-            per report. Plans renew automatically; cancel anytime.
-          </p>
+          <h2 className="text-2xl font-bold text-slate-900">{payment.subscriptions.heading}</h2>
+          <p
+            className="mt-2 text-sm text-slate-600"
+            dangerouslySetInnerHTML={{ __html: payment.subscriptions.description }}
+          />
         </div>
       </div>
       <div className="mt-6 grid gap-4 md:grid-cols-3">
-        {subscriptionPlans.map((plan) => {
+        {plans.map((plan) => {
           const isActive = user?.subscriptionPlan === plan.id;
+          const [includesPrefix = "", includesSuffix = ""] = payment.subscriptions.includes.split("{{credits}}");
+          const buttonLabel = isActive
+            ? payment.subscriptions.currentPlan
+            : t("payment.subscriptions.buy", { plan: plan.title });
+
           return (
             <article
               key={plan.id}
@@ -179,9 +237,9 @@ function Subscriptions() {
               </div>
               <div className="mt-5 flex flex-col gap-3">
                 <p className="text-sm font-semibold text-slate-700">
-                  Includes{" "}
+                  {includesPrefix}
                   <span className="font-bold text-slate-900">
-                    {plan.credits ? `${plan.credits} credits` : "no prepaid credits"}
+                    {plan.credits ? `${plan.credits}${includesSuffix}` : payment.subscriptions.includesNone}
                   </span>
                 </p>
                 <button
@@ -193,7 +251,7 @@ function Subscriptions() {
                       : "border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900"
                   }`}
                 >
-                  {isActive ? "Current plan" : `Buy ${plan.title}`}
+                  {buttonLabel}
                 </button>
               </div>
             </article>
@@ -205,35 +263,20 @@ function Subscriptions() {
           {message}
         </p>
       )}
-      <p className="mt-2 text-xs text-slate-500">
-        Credits renew when your subscription is charged. Yearly plans provide the biggest upfront credit bundle for clinics
-        and high-volume users.
-      </p>
+      <p className="mt-2 text-xs text-slate-500">{payment.subscriptions.note}</p>
     </section>
   );
 }
 
 function FAQ() {
+  const payment = usePaymentCopy();
   return (
     <section className="mt-12 rounded-4xl border border-slate-100 bg-white p-8 shadow-sm">
-      <h2 className="text-2xl font-bold text-slate-900">Payment FAQs</h2>
+      <h2 className="text-2xl font-bold text-slate-900">{payment.faq.heading}</h2>
       <div className="mt-6 grid gap-4 md:grid-cols-2">
-        <FaqItem
-          question="Can I mix pay-as-you-go and credits?"
-          answer="Yes. You can pay BDT 10 at any time, and also maintain a subscription for steady savings. Credits only deduct when available."
-        />
-        <FaqItem
-          question="What happens if I cancel my subscription?"
-          answer="You keep any remaining credits until they expire (90 days for monthly, 180 days for yearly). Future renewals stop immediately."
-        />
-        <FaqItem
-          question="Do credits roll over?"
-          answer="Monthly credits roll forward for 90 days, yearly credits for 180 days. After that, unused credits expire."
-        />
-        <FaqItem
-          question="How soon is my report unlocked?"
-          answer="Instantly. As soon as payment is confirmed or credits are redeemed, your report summary becomes available."
-        />
+        {payment.faq.items.map((item) => (
+          <FaqItem key={item.question} question={item.question} answer={item.answer} />
+        ))}
       </div>
     </section>
   );
