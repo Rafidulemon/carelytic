@@ -36,10 +36,13 @@ export const en = {
     },
   },
   navbar: {
+    tagline: "Patient-first medical AI",
     ariaMenu: "Toggle navigation",
     text: {
       signedIn: "Signed in",
       signedInAs: "Signed in as",
+      demoUser: "Demo user",
+      guest: "Guest",
       balance: "Balance",
       reportsAnalyzed: {
         single: "{{count}} report analyzed",
@@ -49,14 +52,35 @@ export const en = {
     },
   },
   footer: {
+    identityTagline: "Bangladesh-born healthcare AI",
     tagline:
       "AI that understands your medical language and translates it into clarity.",
+    highlightTags: ["Clinical clarity", "Patient-first AI", "Secure by design"],
+    quickLinks: {
+      heading: "Quick links",
+    },
+    contact: {
+      heading: "Reach out",
+      emailLabel: "Email",
+      phoneLabel: "Phone",
+      websiteLabel: "Website",
+    },
+    team: {
+      heading: "Meet the founder",
+      name: "Md. Rafidul Islam",
+      title: "Software Engineer at Ninja Digital Innovation",
+      description:
+        "Rafidul leads Carelytic with a focus on empathetic, secure AI that helps patients and clinicians communicate clearly.",
+      focusAreas: ["Product vision", "Healthcare AI", "Bangladesh-first innovation"],
+      cta: "Email Rafidul",
+    },
     links: {
       about: "About",
       upload: "Upload",
       privacy: "Privacy Policy",
       contact: "Contact",
     },
+    locationNote: "Built in Dhaka — serving patients everywhere.",
     copyright: "© {{year}} Carelytic. All rights reserved.",
   },
   home: {
@@ -186,27 +210,75 @@ export const en = {
       ],
     },
     team: {
-      heading: "Meet the team leading Carelytic",
+      heading: "Meet the founder leading Carelytic",
       description:
-        "Diverse expertise in clinical practice, AI research, and human-centered design fuels our commitment to better health communication.",
+        "Carelytic is driven by hands-on engineering leadership dedicated to building trustworthy, human-centered healthcare AI for Bangladesh and beyond.",
       members: [
         {
-          name: "Dr. Maya Chen",
-          title: "Chief Medical Officer",
-          bio: "Board-certified internist with 12 years in hospital medicine, leading clinical validation at Carelytic.",
-        },
-        {
-          name: "Leo Martinez",
-          title: "Head of Product",
-          bio: "Former product lead at a digital therapeutics startup, passionate about building empathetic health software.",
-        },
-        {
-          name: "Anika Patel",
-          title: "Lead ML Engineer",
-          bio: "Specializes in multimodal medical AI and responsible model deployment across regulated environments.",
+          name: "Md. Rafidul Islam",
+          title: "Software Engineer at Ninja Digital Innovation",
+          bio: "Rafidul designs and engineers Carelytic to translate complex medical data into clear insights, partnering with clinicians and patients to keep empathy at the core.",
         },
       ],
-      footerTag: "Healthcare AI · Responsible innovation · Patient empathy",
+      footerTag: "Healthcare AI · Patient empathy · Built in Bangladesh",
+    },
+  },
+  privacy: {
+    hero: {
+      badge: "Privacy & security",
+      heading: "Privacy Policy",
+      updated: "Last updated: October 2024",
+      intro:
+        "Carelytic is built to handle sensitive medical information responsibly. This policy explains what we collect, why we collect it, and how you stay in control.",
+    },
+    sections: [
+      {
+        title: "Information we collect",
+        paragraphs: [
+          "We capture only the data required to deliver secure, reliable AI summaries.",
+        ],
+        bullets: [
+          "Uploaded medical reports are encrypted in transit and at rest until you delete them.",
+          "Account details such as your name, phone number, and optional email help us authenticate and send important updates.",
+          "Usage metrics are aggregated and anonymised to improve accuracy without revealing your identity.",
+        ],
+      },
+      {
+        title: "How we use your information",
+        paragraphs: [
+          "Your data powers the features you request—nothing more.",
+        ],
+        bullets: [
+          "Deliver AI summaries, insight highlights, and translated explanations for your reports.",
+          "Provide support responses, account notifications, and security alerts.",
+          "Comply with legal obligations and prevent fraud or abuse.",
+        ],
+      },
+      {
+        title: "How you stay in control",
+        paragraphs: [
+          "You decide how long Carelytic keeps your information.",
+        ],
+        bullets: [
+          "Delete any report from your dashboard to remove it from our systems immediately.",
+          "Download a copy of your insights at any time for your own records.",
+          "Contact us to update or close your account—we respond within 48 hours.",
+        ],
+      },
+    ],
+    commitments: {
+      heading: "Our privacy commitments",
+      points: [
+        "Encryption in transit and at rest for every report and insight.",
+        "No advertising, reselling, or third-party monetisation of your medical data.",
+        "Human review only occurs when you explicitly ask for support.",
+      ],
+    },
+    contact: {
+      heading: "Questions about privacy?",
+      description:
+        "Reach out to Rafidul directly—your message goes straight to the person building and securing Carelytic.",
+      emailCta: "Email Rafidul",
     },
   },
   plans: {
