@@ -384,7 +384,7 @@ export const en = {
     badge: "Secure login",
     heading: "Welcome back to Carelytic",
     intro:
-      "Sign in with the Bangladeshi mobile number linked to your Carelytic account. We’ll send a one-time passcode (OTP) for secure verification.",
+      "Sign in with the Bangladeshi mobile number linked to your Carelytic account. You can receive a one-time passcode (OTP) or use the password you set during signup.",
     phone: {
       label: "Bangladeshi phone number",
       placeholder: "17XXXXXXX",
@@ -407,6 +407,21 @@ export const en = {
       resend: "Resend OTP",
       errorCode: "Enter the six-digit code sent to your phone.",
       errorResend: "Resend the OTP to continue.",
+    },
+    methods: {
+      label: "Choose your sign-in method",
+      otp: "OTP login",
+      password: "Password login",
+    },
+    password: {
+      heading: "Use your password",
+      label: "Password",
+      placeholder: "Enter your password",
+      errorRequired: "Enter your password to continue.",
+      errorGeneric: "We couldn’t sign you in. Check your password or switch to OTP.",
+      submit: "Sign in",
+      submitting: "Signing in...",
+      useOtp: "Prefer a one-time code?",
     },
     sidebar: {
       title: "Carelytic secure access",
@@ -459,6 +474,15 @@ export const en = {
         label: "Blood group",
         placeholder: "Select blood group",
         error: "Select your blood group so we can personalise your summaries.",
+      },
+      password: {
+        label: "Create password",
+        placeholder: "At least 6 characters",
+        helper: "Use this password for quick logins without waiting for an OTP.",
+        confirmLabel: "Confirm password",
+        confirmPlaceholder: "Re-enter password",
+        errorLength: "Password must be at least 6 characters long.",
+        errorMismatch: "Passwords do not match.",
       },
       diabetic: {
         label: "Diabetes",

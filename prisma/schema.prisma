@@ -1,0 +1,183 @@
+// Prisma schema for Carelytic medical-report platform
+// Backed by PostgreSQL and optimized for NextAuth + application data.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum BloodGroup {
+  A_POS
+  A_NEG
+  B_POS
+  B_NEG
+  AB_POS
+  AB_NEG
+  O_POS
+  O_NEG
+}
+
+enum SubscriptionPlan {
+  PAYG @map("payg")
+  MONTHLY @map("monthly")
+  YEARLY @map("yearly")
+}
+
+enum ReportStatus {
+  UPLOADING @map("uploading")
+  PROCESSING @map("processing")
+  COMPLETE @map("complete")
+  FAILED @map("failed")
+}
+
+enum MetricFlag {
+  NORMAL @map("normal")
+  ATTENTION @map("attention")
+  UNKNOWN @map("unknown")
+}
+
+enum CreditTransactionType {
+  PURCHASE @map("purchase")
+  REDEMPTION @map("redemption")
+  ADJUSTMENT @map("adjustment")
+  REFUND @map("refund")
+}
+
+model User {
+  id                    String                  @id @default(uuid())
+  name                  String?
+  email                 String?                 @unique
+  phone                 String                  @unique
+  hashedPassword        String?
+  bloodGroup            BloodGroup?
+  isDiabetic            Boolean?                @default(false)
+  hasHypertension       Boolean?                @default(false)
+  subscriptionPlan      SubscriptionPlan        @default(PAYG)
+  subscriptionRenewal   DateTime?
+  credits               Int                     @default(0)
+  reports               Report[]
+  creditTransactions    CreditTransaction[]
+  subscriptionHistory   SubscriptionChange[]
+  sessions              Session[]
+  accounts              Account[]
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  @@index([email])
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model Report {
+  id              String        @id @default(uuid())
+  userId          String
+  originalName    String
+  storageKey      String        @unique
+  storageBucket   String
+  contentType     String
+  fileSizeBytes   Int
+  status          ReportStatus  @default(PROCESSING)
+  summary         String?
+  attentionCount  Int           @default(0)
+  uploadedAt      DateTime      @default(now())
+  completedAt     DateTime?
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  metrics         ReportMetric[]
+  highlights      ReportHighlight[]
+  creditCharge    CreditTransaction?
+
+  @@index([userId, uploadedAt])
+  @@map("reports")
+}
+
+model ReportMetric {
+  id         String      @id @default(uuid())
+  reportId   String
+  name       String
+  value      String
+  status     MetricFlag  @default(NORMAL)
+  insight    String?
+  report     Report      @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+  @@map("report_metrics")
+}
+
+model ReportHighlight {
+  id        String  @id @default(uuid())
+  reportId  String
+  content   String
+  report    Report  @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+  @@map("report_highlights")
+}
+
+model CreditTransaction {
+  id          String                 @id @default(uuid())
+  userId      String
+  reportId    String?                @unique
+  amount      Int
+  type        CreditTransactionType
+  description String?
+  createdAt   DateTime               @default(now())
+  user        User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  report      Report?                @relation(fields: [reportId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@map("credit_transactions")
+}
+
+model SubscriptionChange {
+  id               String           @id @default(uuid())
+  userId           String
+  fromPlan         SubscriptionPlan?
+  toPlan           SubscriptionPlan
+  effectiveDate    DateTime         @default(now())
+  renewalDate      DateTime?
+  creditsGranted   Int              @default(0)
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, effectiveDate])
+  @@map("subscription_changes")
+}

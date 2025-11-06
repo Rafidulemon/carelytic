@@ -54,6 +54,21 @@ interface LoginCopy {
     errorCode: string;
     errorResend: string;
   };
+  methods: {
+    label: string;
+    otp: string;
+    password: string;
+  };
+  password: {
+    heading: string;
+    label: string;
+    placeholder: string;
+    errorRequired: string;
+    errorGeneric: string;
+    submit: string;
+    submitting: string;
+    useOtp: string;
+  };
 }
 
 export default function LoginFlow() {
@@ -69,6 +84,11 @@ export default function LoginFlow() {
   const [otpError, setOtpError] = useState("");
   const [loading, setLoading] = useState(false);
   const [timer, setTimer] = useState(60);
+  const [loginMethod, setLoginMethod] = useState<"otp" | "password">("otp");
+  const [password, setPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
 
   useEffect(() => {
@@ -87,6 +107,35 @@ export default function LoginFlow() {
     );
     return () => clearInterval(countdown);
   }, [step, timer]);
+
+  const switchToOtp = () => {
+    setLoginMethod("otp");
+    setStep("phone");
+    setPhoneError("");
+    setOtpValues(Array(OTP_LENGTH).fill(""));
+    setOtpError("");
+    setTimer(60);
+    setLoading(false);
+    setPassword("");
+    setPasswordError("");
+    setPasswordLoading(false);
+    setShowPassword(false);
+  };
+
+  const switchToPassword = () => {
+    setLoginMethod("password");
+    setStep("phone");
+    setPhoneError("");
+    setOtpValues(Array(OTP_LENGTH).fill(""));
+    setOtpError("");
+    setTimer(60);
+    setNormalizedPhone("");
+    setLoading(false);
+    setPassword("");
+    setPasswordError("");
+    setPasswordLoading(false);
+    setShowPassword(false);
+  };
 
   const handleSendOtp = () => {
     const normalized = normalizeBangladeshPhone(phone.trim());
@@ -148,9 +197,34 @@ export default function LoginFlow() {
     }
     setLoading(true);
     setTimeout(() => {
-      login({ phone: normalizedPhone });
-      router.replace("/account");
+      void login({ phone: normalizedPhone, method: "otp" }).then(() => {
+        router.replace("/account");
+      });
     }, 900);
+  };
+
+  const handlePasswordLogin = () => {
+    const normalized = normalizeBangladeshPhone(phone.trim());
+    if (!normalized) {
+      setPhoneError(loginCopy.phone.errorInvalid);
+      return;
+    }
+    if (!password) {
+      setPasswordError(loginCopy.password.errorRequired);
+      return;
+    }
+    setPhoneError("");
+    setPasswordError("");
+    setPasswordLoading(true);
+    setTimeout(async () => {
+      const result = await login({ phone: normalized, method: "password", password });
+      setPasswordLoading(false);
+      if (!result.success) {
+        setPasswordError(result.message ?? loginCopy.password.errorGeneric);
+        return;
+      }
+      router.replace("/account");
+    }, 700);
   };
 
   const resendInfoParts = loginCopy.otp.resendInfo.split("{{seconds}}");
@@ -169,8 +243,37 @@ export default function LoginFlow() {
           <p className="mt-2 text-sm text-slate-600 sm:text-base">
             {loginCopy.intro}
           </p>
+          <div className="mt-6">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              {loginCopy.methods.label}
+            </p>
+            <div className="mt-2 inline-flex rounded-full border border-slate-200 bg-slate-50/70 p-1">
+              <button
+                type="button"
+                onClick={switchToOtp}
+                className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wide transition ${
+                  loginMethod === "otp"
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                {loginCopy.methods.otp}
+              </button>
+              <button
+                type="button"
+                onClick={switchToPassword}
+                className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wide transition ${
+                  loginMethod === "password"
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                {loginCopy.methods.password}
+              </button>
+            </div>
+          </div>
 
-          {step === "phone" && (
+          {loginMethod === "otp" && step === "phone" && (
             <form
               className="mt-10 space-y-5"
               onSubmit={(event) => {
@@ -218,7 +321,7 @@ export default function LoginFlow() {
             </form>
           )}
 
-          {step === "otp" && (
+          {loginMethod === "otp" && step === "otp" && (
             <form
               className="mt-10 space-y-6"
               onSubmit={(event) => {
@@ -296,6 +399,80 @@ export default function LoginFlow() {
                   className="font-semibold text-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {loginCopy.otp.resend}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {loginMethod === "password" && (
+            <form
+              className="mt-10 space-y-5"
+              onSubmit={(event) => {
+                event.preventDefault();
+                handlePasswordLogin();
+              }}
+            >
+              <div>
+                <label className="text-sm font-semibold text-slate-700">
+                  {loginCopy.phone.label}
+                </label>
+                <div className="mt-2 flex items-center rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 focus-within:border-slate-300 focus-within:bg-white focus-within:ring-2 focus-within:ring-slate-200">
+                  <span className="mr-2 text-sm font-semibold text-slate-500">
+                    +880
+                  </span>
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    className="w-full border-0 bg-transparent text-base font-medium text-slate-800 outline-none"
+                    placeholder={loginCopy.phone.placeholder}
+                    value={phone}
+                    onChange={(event) => setPhone(event.target.value)}
+                  />
+                </div>
+                {phoneError && (
+                  <p className="mt-2 text-sm text-rose-500">{phoneError}</p>
+                )}
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-slate-700">
+                  {loginCopy.password.label}
+                </label>
+                <div className="mt-2 flex items-center rounded-2xl border border-slate-200 bg-white px-4 py-3 focus-within:border-slate-300 focus-within:ring-2 focus-within:ring-slate-200">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    className="w-full border-0 bg-transparent text-base font-medium text-slate-800 outline-none"
+                    placeholder={loginCopy.password.placeholder}
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="ml-3 text-xs font-semibold uppercase tracking-wide text-slate-500 transition hover:text-slate-700"
+                    onClick={() => setShowPassword((value) => !value)}
+                  >
+                    {showPassword ? "Hide" : "Show"}
+                  </button>
+                </div>
+                {passwordError && (
+                  <p className="mt-2 text-sm text-rose-500">{passwordError}</p>
+                )}
+              </div>
+              <button
+                type="submit"
+                disabled={passwordLoading}
+                className="w-full rounded-full bg-brand-gradient px-6 py-3 text-sm font-semibold text-white shadow-soft transition hover:-translate-y-0.5 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {passwordLoading ? loginCopy.password.submitting : loginCopy.password.submit}
+              </button>
+              <div className="text-center text-xs text-slate-500">
+                {loginCopy.password.useOtp}
+                {" "}
+                <button
+                  type="button"
+                  onClick={switchToOtp}
+                  className="font-semibold text-slate-900 hover:underline"
+                >
+                  {loginCopy.methods.otp}
                 </button>
               </div>
             </form>

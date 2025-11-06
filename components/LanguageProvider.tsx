@@ -68,10 +68,17 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       return;
     }
     const stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY) as Language | null;
+    let languageFrame: number | null = null;
     if (stored === "en" || stored === "bn") {
-      setLanguage(stored);
+      languageFrame = window.requestAnimationFrame(() => setLanguage(stored));
     }
-    setIsHydrated(true);
+    const hydrateFrame = window.requestAnimationFrame(() => setIsHydrated(true));
+    return () => {
+      if (languageFrame !== null) {
+        window.cancelAnimationFrame(languageFrame);
+      }
+      window.cancelAnimationFrame(hydrateFrame);
+    };
   }, []);
 
   useEffect(() => {

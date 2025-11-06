@@ -56,6 +56,15 @@ interface SignupCopy {
     fullName: { label: string; placeholder: string; error: string };
     email: { label: string; placeholder: string; error: string };
     bloodGroup: { label: string; placeholder: string; error: string };
+    password: {
+      label: string;
+      placeholder: string;
+      helper: string;
+      confirmLabel: string;
+      confirmPlaceholder: string;
+      errorLength: string;
+      errorMismatch: string;
+    };
     diabetic: { label: string; yes: string; no: string };
     hypertension: { label: string; yes: string; no: string };
     conditionsError: string;
@@ -96,6 +105,10 @@ export default function SignupFlow() {
   const [isDiabetic, setIsDiabetic] = useState<boolean | null>(null);
   const [hasHypertension, setHasHypertension] = useState<boolean | null>(null);
   const [consent, setConsent] = useState(true);
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [detailsError, setDetailsError] = useState("");
   const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
 
@@ -187,6 +200,14 @@ export default function SignupFlow() {
       setDetailsError(signup.details.verifyPhoneError);
       return;
     }
+    if (password.trim().length < 6) {
+      setDetailsError(signup.details.password.errorLength);
+      return;
+    }
+    if (password !== confirmPassword) {
+      setDetailsError(signup.details.password.errorMismatch);
+      return;
+    }
     if (!bloodGroup) {
       setDetailsError(signup.details.bloodGroup.error);
       return;
@@ -207,6 +228,7 @@ export default function SignupFlow() {
         hasHypertension,
         subscriptionPlan: "payg",
         credits: 0,
+        password,
       });
 
       router.replace("/account");
@@ -435,15 +457,60 @@ export default function SignupFlow() {
                     <option value="B-">B-</option>
                     <option value="AB+">AB+</option>
                     <option value="AB-">AB-</option>
-                    <option value="O+">O+</option>
-                    <option value="O-">O-</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-sm font-semibold text-slate-700">
-                    {signup.details.diabetic.label}
-                  </label>
-                  <div className="mt-2 flex gap-2">
+                <option value="O+">O+</option>
+                <option value="O-">O-</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-sm font-semibold text-slate-700">
+                {signup.details.password.label}
+              </label>
+              <div className="mt-2 flex items-center rounded-2xl border border-slate-200 bg-white px-4 py-3 focus-within:border-slate-300 focus-within:ring-2 focus-within:ring-slate-200">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  className="w-full border-0 bg-transparent text-base font-medium text-slate-800 outline-none"
+                  placeholder={signup.details.password.placeholder}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                />
+                <button
+                  type="button"
+                  className="ml-3 text-xs font-semibold uppercase tracking-wide text-slate-500 transition hover:text-slate-700"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
+              <p className="mt-2 text-xs text-slate-500">
+                {signup.details.password.helper}
+              </p>
+            </div>
+            <div>
+              <label className="text-sm font-semibold text-slate-700">
+                {signup.details.password.confirmLabel}
+              </label>
+              <div className="mt-2 flex items-center rounded-2xl border border-slate-200 bg-white px-4 py-3 focus-within:border-slate-300 focus-within:ring-2 focus-within:ring-slate-200">
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  className="w-full border-0 bg-transparent text-base font-medium text-slate-800 outline-none"
+                  placeholder={signup.details.password.confirmPlaceholder}
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                />
+                <button
+                  type="button"
+                  className="ml-3 text-xs font-semibold uppercase tracking-wide text-slate-500 transition hover:text-slate-700"
+                  onClick={() => setShowConfirmPassword((prev) => !prev)}
+                >
+                  {showConfirmPassword ? "Hide" : "Show"}
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-semibold text-slate-700">
+                {signup.details.diabetic.label}
+              </label>
+              <div className="mt-2 flex gap-2">
                     <ToggleButton
                       active={isDiabetic === true}
                       onClick={() => setIsDiabetic(true)}
