@@ -13,6 +13,29 @@ interface AnalysisResult {
   insight: string;
 }
 
+interface UploadResponse {
+  bucket: string;
+  key: string;
+  size: number;
+  contentType: string;
+  originalName: string;
+}
+
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+
+function formatFileSize(bytes: number) {
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+  if (bytes < 1024 * 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
+
 const mockAnalysis: AnalysisResult[] = [
   {
     metric: "Hemoglobin",
@@ -52,6 +75,11 @@ export default function UploadCard() {
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [paymentState, setPaymentState] = useState<"idle" | "processing" | "success" | "failed">("idle");
   const [paymentMessage, setPaymentMessage] = useState("");
+  const [bucketStatus, setBucketStatus] = useState<"loading" | "configured" | "missing" | "error">("loading");
+  const [bucketName, setBucketName] = useState("");
+  const [uploadState, setUploadState] = useState<"idle" | "uploading" | "success" | "error">("idle");
+  const [uploadInfo, setUploadInfo] = useState<UploadResponse | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const reset = useCallback(() => {
     setStage("idle");
@@ -61,28 +89,68 @@ export default function UploadCard() {
     setIsUnlocked(false);
     setPaymentState("idle");
     setPaymentMessage("");
+    setUploadState("idle");
+    setUploadInfo(null);
+    setUploadError(null);
     if (analysisTimer.current) {
       clearTimeout(analysisTimer.current);
     }
   }, []);
 
-  const simulateAnalysis = useCallback((file: File) => {
+  const processFile = useCallback(async (file: File) => {
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      setUploadState("error");
+      setUploadError("File is too large. Maximum size is 5 MB.");
+      setStage("idle");
+      setSelectedFile(null);
+      return;
+    }
+
     setSelectedFile(file.name);
     setStage("processing");
     historyLoggedRef.current = false;
+    setUploadState("uploading");
+    setUploadError(null);
+    setUploadInfo(null);
 
     if (analysisTimer.current) {
       clearTimeout(analysisTimer.current);
     }
 
-    analysisTimer.current = setTimeout(() => {
-      setResults(
-        mockAnalysis.map((entry) => ({
-          ...entry,
-        }))
-      );
-      setStage("complete");
-    }, 2200);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => ({}));
+        const message = typeof errorBody.error === "string" ? errorBody.error : "Upload failed.";
+        throw new Error(message);
+      }
+
+      const data: UploadResponse = await response.json();
+      setUploadInfo(data);
+      setUploadState("success");
+
+      analysisTimer.current = setTimeout(() => {
+        setResults(
+          mockAnalysis.map((entry) => ({
+            ...entry,
+          }))
+        );
+        setStage("complete");
+      }, 2200);
+    } catch (error) {
+      const message = error instanceof Error && error.message ? error.message : "Failed to upload file.";
+      setUploadState("error");
+      setUploadError(message);
+      setStage("idle");
+      setSelectedFile(null);
+    }
   }, []);
 
   const handleFiles = useCallback(
@@ -91,9 +159,9 @@ export default function UploadCard() {
         return;
       }
       const file = files[0];
-      simulateAnalysis(file);
+      void processFile(file);
     },
-    [simulateAnalysis]
+    [processFile]
   );
 
   const onInputChange = useCallback(
@@ -176,6 +244,39 @@ export default function UploadCard() {
   );
 
   useEffect(() => {
+    let cancelled = false;
+    const verifyBucket = async () => {
+      try {
+        const response = await fetch("/api/s3-bucket");
+        if (!response.ok) {
+          throw new Error("Request failed");
+        }
+        const data: { configured: boolean; bucket?: string } = await response.json();
+        if (cancelled) {
+          return;
+        }
+        if (data.configured && data.bucket) {
+          setBucketStatus("configured");
+          setBucketName(data.bucket);
+        } else {
+          setBucketStatus("missing");
+          setBucketName("");
+        }
+      } catch {
+        if (!cancelled) {
+          setBucketStatus("error");
+          setBucketName("");
+        }
+      }
+    };
+
+    verifyBucket();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     if (stage !== "complete" || !selectedFile || results.length === 0 || historyLoggedRef.current) {
       return;
     }
@@ -242,7 +343,7 @@ export default function UploadCard() {
               <button
                 type="button"
                 onClick={() => inputRef.current?.click()}
-                className="rounded-full bg-brand-gradient px-5 py-2 text-sm font-semibold text-white shadow-soft transition hover:-translate-y-0.5 hover:shadow-lg"
+                className="cursor-pointer rounded-full bg-brand-gradient px-5 py-2 text-sm font-semibold text-white shadow-soft transition hover:-translate-y-0.5 hover:shadow-lg"
               >
                 Browse files
               </button>
@@ -286,6 +387,11 @@ export default function UploadCard() {
               <p className="mt-1 text-xs text-slate-500">
                 Carelytic is extracting key metrics and comparing them with healthy ranges.
               </p>
+              {(uploadState === "uploading" || uploadState === "success") && (
+                <p className="mt-2 text-xs text-slate-500">
+                  {uploadState === "uploading" ? "Uploading to Cloudflare R2 storage..." : "Upload complete. Generating insights..."}
+                </p>
+              )}
             </div>
             {selectedFile && (
               <span className="rounded-full bg-white px-4 py-1 text-xs font-medium text-slate-500 shadow-sm">
@@ -319,7 +425,31 @@ export default function UploadCard() {
                 {selectedFile}
               </span>
             )}
+            {uploadInfo && (
+              <p className="mt-3 text-center text-xs text-slate-500">
+                Stored in {uploadInfo.bucket} as {uploadInfo.key} ({formatFileSize(uploadInfo.size)})
+              </p>
+            )}
           </div>
+        )}
+      </div>
+      {uploadError && (
+        <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs font-medium text-rose-700">
+          {uploadError}
+        </div>
+      )}
+      <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 text-xs text-slate-500">
+        {bucketStatus === "loading" && "Checking storage configuration..."}
+        {bucketStatus === "configured" && (
+          <span>
+            Connected to Cloudflare R2 bucket <span className="font-semibold text-slate-600">{bucketName}</span>.
+          </span>
+        )}
+        {bucketStatus === "missing" && (
+          <span className="text-amber-600">No S3 bucket found. Set S3_BUCKET in your environment variables.</span>
+        )}
+        {bucketStatus === "error" && (
+          <span className="text-rose-600">Could not verify the bucket. Check the `/api/s3-bucket` route.</span>
         )}
       </div>
 
