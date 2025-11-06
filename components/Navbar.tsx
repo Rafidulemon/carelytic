@@ -1,6 +1,7 @@
 "use client";
 
 import type { Language } from "@/locales/types";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -82,17 +83,29 @@ export default function Navbar() {
   }, [sessionUser, t]);
 
   const creditsLabel = t("common.credits.label");
+  const displayName =
+    sessionUser?.name?.trim() || (sessionUser ? t("navbar.text.demoUser") : t("navbar.text.guest"));
+  const signedInLabel = sessionUser ? (sessionUser.name ? t("navbar.text.signedInAs") : t("navbar.text.signedIn")) : "";
 
   return (
     <header
-      className={`sticky top-0 z-50 transition-shadow duration-300 ${
-        isScrolled ? "shadow-lg bg-white/95 backdrop-blur" : "bg-white/80 backdrop-blur"
-      }`}
+      className={`sticky top-0 z-50 transition-all duration-300 bg-white/95 shadow-lg backdrop-blur`}
     >
-      <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4 lg:px-8">
-        <Link href="/" className="flex items-center gap-2" onClick={closeMenu}>
-          <span className="text-2xl font-semibold text-slate-900">{t("common.brand")}</span>
-          <span className="hidden rounded-full bg-brand-gradient px-2 py-1 text-xs font-medium text-white md:inline">
+      <nav className="mx-4 flex max-w-6xl items-center justify-between px-6 py-4 sm:mx-auto lg:px-8">
+        <Link href="/" className="group flex items-center gap-1" onClick={closeMenu}>
+          <Image
+            src="/logo/icon.png"
+            alt="Carelytic logo"
+            width={44}
+            height={44}
+            priority
+          />
+          <div className="flex flex-col">
+            <span className="text-xl font-semibold text-slate-900 transition group-hover:text-slate-950 md:text-2xl">
+              {t("common.brand")}
+            </span>
+          </div>
+          <span className="hidden rounded-full bg-brand-gradient px-2 py-1 text-xs font-medium text-white shadow-soft md:inline">
             {t("common.beta")}
           </span>
         </Link>
@@ -125,7 +138,7 @@ export default function Navbar() {
             </svg>
           </button>
         </div>
-        <div className="hidden items-center gap-3 md:flex">
+        <div className="hidden items-center gap-0 md:flex">
           {links.map((link) => {
             const isActive = pathname === link.href;
             return (
@@ -145,11 +158,11 @@ export default function Navbar() {
               </Link>
             );
           })}
-          <LanguageToggle className="hidden md:flex" />
+          <LanguageToggle className="hidden md:flex mx-2" />
           {sessionUser && (
-            <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600">
+            <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-xs shadow-sm">
               <svg
-                className="h-3.5 w-3.5 text-slate-500"
+                className="h-6 w-4 text-slate-500"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -168,16 +181,14 @@ export default function Navbar() {
               <button
                 type="button"
                 onClick={() => setProfileOpen((prev) => !prev)}
-                className="flex items-center gap-3 rounded-full border border-slate-200 bg-white px-3 py-2 text-left text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+                className="cursor-pointer flex items-center gap-3 rounded-full border border-slate-200 bg-white px-3 py-2 text-left text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
               >
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-gradient text-xs font-semibold uppercase text-white shadow-soft">
                   {initials}
                 </span>
                 <div className="hidden text-left lg:block">
-                  <p className="text-xs text-slate-400">{t("navbar.text.signedIn")}</p>
-                  <p className="text-sm font-semibold text-slate-700">
-                    {sessionUser.name ?? `+${sessionUser.phone}`}
-                  </p>
+                  <p className="text-xs text-slate-400">{signedInLabel}</p>
+                  <p className="text-sm font-semibold text-slate-700">{displayName}</p>
                 </div>
                 <svg className="h-4 w-4 text-slate-400" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" />
@@ -287,12 +298,8 @@ export default function Navbar() {
           {sessionUser ? (
             <>
               <div className="mt-2 rounded-2xl border border-slate-100 bg-slate-50/70 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  {t("navbar.text.signedInAs")}
-                </p>
-                <p className="mt-1 text-sm font-semibold text-slate-900">
-                  {sessionUser.name ?? `+${sessionUser.phone}`}
-                </p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{signedInLabel}</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900">{displayName}</p>
                 <p className="mt-2 text-xs text-slate-500">
                   {getReportsAnalyzedText(sessionUser.history.length, t)}
                 </p>
@@ -371,7 +378,7 @@ function LanguageToggle({ className, onChange }: { className?: string; onChange?
               key={option.code}
               type="button"
               onClick={() => handleSelect(option.code)}
-              className={`rounded-full px-3 py-1 transition ${
+              className={`cursor-pointer rounded-full px-3 py-1 transition ${
                 isActive
                   ? "bg-brand-gradient text-white shadow-soft"
                   : "text-slate-600 hover:text-slate-900"
