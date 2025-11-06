@@ -251,7 +251,7 @@ export default function LoginFlow() {
               <button
                 type="button"
                 onClick={switchToOtp}
-                className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wide transition ${
+                className={`cursor-pointer rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wide transition ${
                   loginMethod === "otp"
                     ? "bg-white text-slate-900 shadow-sm"
                     : "text-slate-500 hover:text-slate-700"
@@ -262,7 +262,7 @@ export default function LoginFlow() {
               <button
                 type="button"
                 onClick={switchToPassword}
-                className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wide transition ${
+                className={`cursor-pointer rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wide transition ${
                   loginMethod === "password"
                     ? "bg-white text-slate-900 shadow-sm"
                     : "text-slate-500 hover:text-slate-700"
@@ -305,11 +305,11 @@ export default function LoginFlow() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full rounded-full bg-brand-gradient px-6 py-3 text-sm font-semibold text-white shadow-soft transition hover:-translate-y-0.5 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70"
+                className="cursor-pointer w-full rounded-full bg-brand-gradient px-6 py-3 text-sm font-semibold text-white shadow-soft transition hover:-translate-y-0.5 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {loading ? loginCopy.phone.sending : loginCopy.phone.send}
               </button>
-              <p className="text-center text-xs text-slate-500">
+              <p className="cursor-pointer text-center text-xs text-slate-500">
                 {loginCopy.phone.cta}{" "}
                 <Link
                   href="/signup"
@@ -372,7 +372,7 @@ export default function LoginFlow() {
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <button
                   type="button"
-                  className="w-full rounded-full border border-slate-200 px-6 py-3 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900 sm:w-auto"
+                  className="cursor-pointer w-full rounded-full border border-slate-200 px-6 py-3 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900 sm:w-auto"
                   onClick={() => {
                     setStep("phone");
                     setOtpValues(Array(OTP_LENGTH).fill(""));
@@ -385,7 +385,7 @@ export default function LoginFlow() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full rounded-full bg-brand-gradient px-6 py-3 text-sm font-semibold text-white shadow-soft transition hover:-translate-y-0.5 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
+                  className="cursor-pointer w-full rounded-full bg-brand-gradient px-6 py-3 text-sm font-semibold text-white shadow-soft transition hover:-translate-y-0.5 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
                 >
                   {loading ? loginCopy.otp.verifying : loginCopy.otp.verify}
                 </button>
@@ -396,7 +396,7 @@ export default function LoginFlow() {
                   type="button"
                   disabled={timer > 0}
                   onClick={handleSendOtp}
-                  className="font-semibold text-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="cursor-pointer font-semibold text-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {loginCopy.otp.resend}
                 </button>
@@ -447,7 +447,7 @@ export default function LoginFlow() {
                   />
                   <button
                     type="button"
-                    className="ml-3 text-xs font-semibold uppercase tracking-wide text-slate-500 transition hover:text-slate-700"
+                    className="cursor-pointer ml-3 text-xs font-semibold uppercase tracking-wide text-slate-500 transition hover:text-slate-700"
                     onClick={() => setShowPassword((value) => !value)}
                   >
                     {showPassword ? "Hide" : "Show"}
@@ -460,7 +460,7 @@ export default function LoginFlow() {
               <button
                 type="submit"
                 disabled={passwordLoading}
-                className="w-full rounded-full bg-brand-gradient px-6 py-3 text-sm font-semibold text-white shadow-soft transition hover:-translate-y-0.5 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70"
+                className="cursor-pointer w-full rounded-full bg-brand-gradient px-6 py-3 text-sm font-semibold text-white shadow-soft transition hover:-translate-y-0.5 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {passwordLoading ? loginCopy.password.submitting : loginCopy.password.submit}
               </button>
@@ -470,7 +470,7 @@ export default function LoginFlow() {
                 <button
                   type="button"
                   onClick={switchToOtp}
-                  className="font-semibold text-slate-900 hover:underline"
+                  className="cursor-pointer font-semibold text-slate-900 hover:underline"
                 >
                   {loginCopy.methods.otp}
                 </button>

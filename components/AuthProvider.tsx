@@ -41,7 +41,7 @@ interface AuthContextValue {
   login: (payload: { phone: string; method: "otp" | "password"; password?: string }) => Promise<{ success: boolean; message?: string }>;
   completeSignup: (profile: Omit<CarelyticUser, "history" | "passwordHash"> & { password: string }) => void;
   logout: () => void;
-  addHistory: (entry: HistoryEntry) => void;
+  refreshHistory: () => Promise<void>;
   consumeCredits: (amount: number) => boolean;
   addCredits: (amount: number) => void;
   purchaseSubscription: (plan: SubscriptionPlan) => void;
@@ -61,29 +61,36 @@ function hashPassword(password: string) {
   return hash.toString(16);
 }
 
-const demoHistory: HistoryEntry[] = [
-  {
-    id: "cbc-87234",
-    title: "Complete Blood Count",
-    date: "2024-06-12",
-    summary: "Normal range with mild WBC elevation flagged for review.",
-    highlights: ["WBC: 11.2 k/µL (Attention)", "Hemoglobin: 13.5 g/dL (Normal)"],
-  },
-  {
-    id: "metabolic-48391",
-    title: "Comprehensive Metabolic Panel",
-    date: "2024-05-27",
-    summary: "Glucose trending up; hydration and lifestyle adjustments suggested.",
-    highlights: ["Glucose: 104 mg/dL (Attention)", "Creatinine: 0.92 mg/dL (Normal)"],
-  },
-  {
-    id: "lipid-21873",
-    title: "Lipid Profile",
-    date: "2024-04-18",
-    summary: "LDL within target; HDL slightly below optimal range.",
-    highlights: ["LDL: 95 mg/dL (Normal)", "HDL: 38 mg/dL (Attention)"],
-  },
-];
+async function fetchHistoryFromApi(userId: string): Promise<HistoryEntry[]> {
+  try {
+    const response = await fetch(`/api/reports/history?userId=${encodeURIComponent(userId)}`);
+    if (!response.ok) {
+      throw new Error("Request failed");
+    }
+    const data = (await response.json()) as {
+      reports?: Array<{
+        id: string;
+        title: string;
+        summary?: string;
+        date: string;
+        highlights: string[];
+      }>;
+    };
+    if (!Array.isArray(data.reports)) {
+      return [];
+    }
+    return data.reports.map((report) => ({
+      id: report.id,
+      title: report.title,
+      date: report.date.slice(0, 10),
+      summary: report.summary ?? "",
+      highlights: report.highlights,
+    }));
+  } catch (error) {
+    console.error("Failed to load history", error);
+    return [];
+  }
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<CarelyticUser | null>(null);
@@ -99,7 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ...parsed,
         subscriptionPlan: parsed.subscriptionPlan ?? "payg",
         credits: parsed.credits ?? 0,
-        history: parsed.history ?? demoHistory,
+        history: parsed.history ?? [],
       };
       const frame = window.requestAnimationFrame(() => setUser(normalized));
       return () => window.cancelAnimationFrame(frame);
@@ -158,9 +165,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (existing.passwordHash !== hashed) {
             return { success: false, message: "Incorrect password. Try again or switch to OTP." };
           }
+          let history: HistoryEntry[] =
+            existing.id && existing.id.length > 0
+              ? await fetchHistoryFromApi(existing.id)
+              : existing.history ?? [];
+          if (!history.length) {
+            history = [];
+          }
           const nextUser: CarelyticUser = {
             ...existing,
-            history: existing.history?.length ? existing.history : demoHistory,
+            history,
             subscriptionPlan: existing.subscriptionPlan ?? "payg",
             credits: existing.credits ?? 0,
           };
@@ -198,6 +212,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             };
           }
 
+          let history: HistoryEntry[] = [];
+
+          if (payload.user.id) {
+            history = await fetchHistoryFromApi(payload.user.id);
+          }
+
+          if (!history.length && existing?.history?.length) {
+            history = existing.history;
+          }
+
+          if (!history.length) {
+            history = [];
+          }
+
           const nextUser: CarelyticUser = {
             ...existing,
             id: payload.user.id,
@@ -211,7 +239,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               payload.user.subscriptionPlan ?? existing?.subscriptionPlan ?? "payg",
             subscriptionRenewal: payload.user.subscriptionRenewal ?? existing?.subscriptionRenewal,
             credits: payload.user.credits ?? existing?.credits ?? 0,
-            history: existing?.history?.length ? existing.history : demoHistory,
+            history,
             passwordHash: existing?.passwordHash,
           };
 
@@ -241,7 +269,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           subscriptionPlan: "payg",
           subscriptionRenewal: undefined,
           credits: 0,
-          history: demoHistory,
+          history: [],
         };
 
       setUser(nextUser);
@@ -281,7 +309,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         subscriptionPlan: subscriptionPlan ?? "payg",
         subscriptionRenewal,
         credits: credits ?? 0,
-        history: demoHistory,
+        history: [],
         passwordHash,
       };
       setUser(nextUser);
@@ -297,20 +325,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
-  const addHistory = useCallback((entry: HistoryEntry) => {
+  const refreshHistory = useCallback(async () => {
+    if (!user?.id) {
+      return;
+    }
+    const history = await fetchHistoryFromApi(user.id);
     setUser((prev) => {
-      if (!prev) return prev;
-      const updated: CarelyticUser = {
-        ...prev,
-        history: [entry, ...prev.history].slice(0, 12),
-      };
-      setSavedUsers((list) => {
-        const others = list.filter((item) => item.phone !== updated.phone);
-        return [...others, updated];
-      });
-      return updated;
+      if (!prev || prev.id !== user.id) {
+        return prev;
+      }
+      return { ...prev, history };
     });
-  }, []);
+    setSavedUsers((list) =>
+      list.map((entry) =>
+        entry.id === user.id ? { ...entry, history } : entry
+      )
+    );
+  }, [user]);
 
   const consumeCredits = useCallback((amount: number) => {
     let success = false;
@@ -375,12 +406,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       completeSignup,
       logout,
-      addHistory,
+      refreshHistory,
       consumeCredits,
       addCredits,
       purchaseSubscription,
     }),
-    [user, login, completeSignup, logout, addHistory, consumeCredits, addCredits, purchaseSubscription]
+    [user, login, completeSignup, logout, refreshHistory, consumeCredits, addCredits, purchaseSubscription]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

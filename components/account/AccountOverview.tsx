@@ -3,7 +3,6 @@
 import { useAuth } from "@/components/AuthProvider";
 import { useSubscriptionPlans } from "../subscriptionPlans";
 import { useLanguage } from "@/components/LanguageProvider";
-import type { Language } from "@/locales/types";
 import Link from "next/link";
 import { useMemo } from "react";
 
@@ -65,15 +64,6 @@ interface AccountCopy {
     includes: string; // ✅ e.g. "Includes {{credits}} AI report credits"
     includesNone: string; // ✅ e.g. "No included credits"
   };
-}
-
-function formatDate(value: string, language: Language) {
-  const locale = language === "bn" ? "bn-BD" : "en-GB";
-  return new Intl.DateTimeFormat(locale, {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(value));
 }
 
 export default function AccountOverview() {
@@ -216,9 +206,7 @@ function ReportsGrid({ copy, user }: { copy: AccountCopy; user: AuthUser }) {
       ) : (
         <div className="grid gap-5 md:grid-cols-2">
           {user.history.map((entry) => {
-            const alertCount = entry.highlights.filter((item) =>
-              item.includes("(Attention)")
-            ).length;
+            const alertCount = entry.highlights.length;
             const alertsLabel = t("account.reports.alerts", {
               count: alertCount,
             });
@@ -249,10 +237,25 @@ function ReportsGrid({ copy, user }: { copy: AccountCopy; user: AuthUser }) {
                     </li>
                   ))}
                 </ul>
-                <div className="mt-4 flex items-center gap-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  <span>{copy.reports.download}</span>
-                  <span className="h-1 w-1 rounded-full bg-slate-300" />
-                  <span>{copy.reports.share}</span>
+                <div className="mt-5">
+                  <Link
+                    href={`/reports/${entry.id}`}
+                    className="inline-flex items-center gap-2 rounded-full bg-brand-gradient px-4 py-2 text-xs font-semibold text-white shadow-soft transition hover:-translate-y-0.5 hover:shadow-lg"
+                  >
+                    <span>{t("common.actions.viewDetails")}</span>
+                    <svg
+                      className="h-3.5 w-3.5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M5 12h14" />
+                      <path d="M13 6l6 6-6 6" />
+                    </svg>
+                  </Link>
                 </div>
               </article>
             );

@@ -154,7 +154,7 @@ export default function HomePage() {
                 </span>
               </div>
               <div className="mt-6 space-y-3">
-                {featuresSection.items.map((feature, index) => (
+                {featuresSection.items.map((feature) => (
                   <div
                     key={feature.title}
                     className="flex items-center justify-between rounded-2xl bg-slate-50/70 p-3 text-left transition hover:bg-white"

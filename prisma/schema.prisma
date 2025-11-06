@@ -125,6 +125,7 @@ model Report {
   metrics         ReportMetric[]
   highlights      ReportHighlight[]
   creditCharge    CreditTransaction?
+  analysis        ReportAnalysis?
 
   @@index([userId, uploadedAt])
   @@map("reports")
@@ -151,6 +152,20 @@ model ReportHighlight {
 
   @@index([reportId])
   @@map("report_highlights")
+}
+
+model ReportAnalysis {
+  id         String   @id @default(uuid())
+  reportId   String   @unique
+  language   String
+  summary    String?
+  details    String
+  actions    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  report     Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@map("report_analyses")
 }
 
 model CreditTransaction {

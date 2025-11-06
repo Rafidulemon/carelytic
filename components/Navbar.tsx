@@ -34,17 +34,9 @@ export default function Navbar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const { t } = useLanguage();
-  const [isScrolled, setIsScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
-
-  useEffect(() => {
-    const handleScroll = () => setIsScrolled(window.scrollY > 8);
-    handleScroll();
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") {
