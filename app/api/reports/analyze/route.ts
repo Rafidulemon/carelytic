@@ -199,37 +199,53 @@ export async function POST(request: Request) {
     }
 
     const openai = getOpenAIClient();
-    const file = await openai.files.create({
-      file: new File([buffer], originalName, {
-        type: contentType ?? "application/octet-stream",
-      }),
-      purpose: "assistants",
-    });
+    const isImageUpload = (contentType ?? "").startsWith("image/");
+    let uploadedFileId: string | null = null;
 
-    const systemPrompt = buildSystemPrompt(language);
-    const userPrompt = buildUserPrompt(language);
+    const userContent: Array<
+      | { type: "input_text"; text: string }
+      | { type: "input_file"; file_id: string }
+      | { type: "input_image"; image_url: string; detail: "auto" | "low" | "high" }
+    > = [{ type: "input_text", text: buildUserPrompt(language) }];
+
+    if (isImageUpload) {
+      const base64 = buffer.toString("base64");
+      userContent.push({
+        type: "input_image",
+        image_url: `data:${contentType};base64,${base64}`,
+        detail: "auto",
+      });
+    } else {
+      const file = await openai.files.create({
+        file: new File([buffer], originalName, {
+          type: contentType ?? "application/octet-stream",
+        }),
+        purpose: "assistants",
+      });
+      uploadedFileId = file.id;
+      userContent.push({ type: "input_file", file_id: file.id });
+    }
 
     const response = await openai.responses.create({
       model: "gpt-4.1-mini",
       input: [
         {
           role: "system",
-          content: [{ type: "input_text", text: systemPrompt }],
+          content: [{ type: "input_text", text: buildSystemPrompt(language) }],
         },
         {
           role: "user",
-          content: [
-            { type: "input_text", text: userPrompt },
-            { type: "input_file", file_id: file.id },
-          ],
+          content: userContent,
         },
       ],
       max_output_tokens: 1200,
     });
 
-    void openai.files.del(file.id).catch((error) => {
-      console.warn("Failed to delete OpenAI file", error);
-    });
+    if (uploadedFileId) {
+      void openai.files.del(uploadedFileId).catch((error) => {
+        console.warn("Failed to delete OpenAI file", error);
+      });
+    }
 
     const outputText = response.output_text;
     if (!outputText) {
