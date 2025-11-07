@@ -4,7 +4,6 @@ import { useAuth } from "@/components/AuthProvider";
 import { useSubscriptionPlans } from "../subscriptionPlans";
 import { useLanguage } from "@/components/LanguageProvider";
 import Link from "next/link";
-import { useMemo } from "react";
 
 type AuthUser = NonNullable<ReturnType<typeof useAuth>["user"]>;
 
@@ -70,6 +69,7 @@ export default function AccountOverview() {
   const { user } = useAuth();
   const { getCopy } = useLanguage();
   const account = getCopy<AccountCopy>("account");
+  const reportsPage = getCopy<{ hero: { description: string } }>("reportsPage");
 
   if (!user) {
     return <UnauthenticatedPanel copy={account} />;
@@ -78,7 +78,7 @@ export default function AccountOverview() {
   return (
     <section className="space-y-10">
       <AccountHeader copy={account} user={user} />
-      <ReportsGrid copy={account} user={user} />
+      <ReportsShortcut copy={account} user={user} reportsDescription={reportsPage.hero.description} />
       <HealthProfile copy={account} user={user} />
       <SubscriptionChooser copy={account} user={user} />
     </section>
@@ -172,97 +172,56 @@ function LogoutButton({ label }: { label: string }) {
   );
 }
 
-function ReportsGrid({ copy, user }: { copy: AccountCopy; user: AuthUser }) {
-  const { language, t } = useLanguage();
-  const dateFormatter = useMemo(
-    () =>
-      new Intl.DateTimeFormat(language === "bn" ? "bn-BD" : "en-GB", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      }),
-    [language]
-  );
-
+function ReportsShortcut({
+  copy,
+  user,
+  reportsDescription,
+}: {
+  copy: AccountCopy;
+  user: AuthUser;
+  reportsDescription: string;
+}) {
+  const { t } = useLanguage();
   const reportCountKey = user.history.length === 1 ? "single" : "plural";
   const reportCountLabel = t(`account.reports.count.${reportCountKey}`, {
     count: user.history.length,
   });
+  const analyzedKey = reportCountKey;
+  const analyzedLabel = t(`navbar.text.reportsAnalyzed.${analyzedKey}`, {
+    count: user.history.length,
+  });
+  const hasReports = user.history.length > 0;
+  const description = hasReports ? reportsDescription : copy.reports.empty;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-slate-900">
-          {copy.reports.heading}
-        </h2>
-        <p className="text-sm font-semibold text-slate-500">
-          {reportCountLabel}
-        </p>
+    <section className="rounded-4xl border border-slate-100 bg-white p-8 shadow-soft">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            {copy.reports.heading}
+          </p>
+          <h2 className="mt-2 text-2xl font-bold text-slate-900">{reportCountLabel}</h2>
+          <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            {analyzedLabel}
+          </p>
+          <p className="mt-3 text-sm text-slate-600">{description}</p>
+        </div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <Link
+            href="/reports"
+            className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+          >
+            {t("common.actions.viewReports")}
+          </Link>
+          <Link
+            href="/upload"
+            className="inline-flex items-center justify-center rounded-full bg-brand-gradient px-3 py-2.5 text-sm font-semibold text-white shadow-soft transition hover:-translate-y-0.5 hover:shadow-lg"
+          >
+            {t("common.actions.newUpload")}
+          </Link>
+        </div>
       </div>
-      {user.history.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-10 text-center text-sm text-slate-500">
-          {copy.reports.empty}
-        </div>
-      ) : (
-        <div className="grid gap-5 md:grid-cols-2">
-          {user.history.map((entry) => {
-            const alertCount = entry.highlights.length;
-            const alertsLabel = t("account.reports.alerts", {
-              count: alertCount,
-            });
-            return (
-              <article
-                key={entry.id}
-                className="flex h-full flex-col justify-between rounded-3xl border border-slate-100 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
-              >
-                <div>
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                      {dateFormatter.format(new Date(entry.date))}
-                    </p>
-                    <span className="rounded-full bg-brand-gradient-soft px-3 py-1 text-xs font-semibold text-slate-700">
-                      {alertsLabel}
-                    </span>
-                  </div>
-                  <h3 className="mt-2 text-lg font-semibold text-slate-900">
-                    {entry.title}
-                  </h3>
-                  <p className="mt-2 text-sm text-slate-600">{entry.summary}</p>
-                </div>
-                <ul className="mt-4 space-y-2 text-sm text-slate-500">
-                  {entry.highlights.map((highlight, index) => (
-                    <li key={index} className="flex items-start gap-2">
-                      <span className="mt-1 h-2 w-2 rounded-full bg-brand-gradient" />
-                      <span>{highlight}</span>
-                    </li>
-                  ))}
-                </ul>
-                <div className="mt-5">
-                  <Link
-                    href={`/reports/${entry.id}`}
-                    className="inline-flex items-center gap-2 rounded-full bg-brand-gradient px-4 py-2 text-xs font-semibold text-white shadow-soft transition hover:-translate-y-0.5 hover:shadow-lg"
-                  >
-                    <span>{t("common.actions.viewDetails")}</span>
-                    <svg
-                      className="h-3.5 w-3.5"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M5 12h14" />
-                      <path d="M13 6l6 6-6 6" />
-                    </svg>
-                  </Link>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      )}
-    </div>
+    </section>
   );
 }
 

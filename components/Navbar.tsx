@@ -20,6 +20,7 @@ const baseNavLinks: NavLinkItem[] = [
   { href: "/payment", labelKey: "common.nav.payments" },
 ];
 
+const reportsNavLink: NavLinkItem = { href: "/reports", labelKey: "common.nav.reports" };
 const accountNavLink: NavLinkItem = { href: "/account", labelKey: "common.nav.account" };
 
 const LANGUAGE_OPTIONS: { code: Language; labelKey: string }[] = [
@@ -109,7 +110,7 @@ export default function Navbar() {
   const links = useMemo(() => {
     const items = [...baseNavLinks];
     if (sessionUser) {
-      items.push(accountNavLink);
+      items.push(reportsNavLink, accountNavLink);
     }
     return items.map((item) => ({
       ...item,
@@ -127,7 +128,7 @@ export default function Navbar() {
     <header
       className={`sticky top-0 z-50 transition-all duration-300 bg-white/95 shadow-lg backdrop-blur`}
     >
-      <nav className="mx-4 flex max-w-6xl items-center justify-between px-6 py-4 sm:mx-auto lg:px-8">
+      <nav className="mx-2 flex items-center justify-between px-6 py-4 sm:mx-auto lg:px-8">
         <Link href="/" className="group flex items-center gap-1" onClick={closeMenu}>
           <Image
             src="/logo/icon.png"
@@ -313,7 +314,6 @@ export default function Navbar() {
       </nav>
       {menuOpen && (
         <div className="mx-4 mb-4 flex flex-col gap-2 rounded-2xl border border-slate-100 bg-white p-4 shadow-lg md:hidden">
-          <LanguageToggle className="mb-2 flex justify-center md:hidden" onChange={closeMenu} />
           {links.map((link) => {
             const isActive = pathname === link.href;
             return (

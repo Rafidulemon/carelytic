@@ -47,6 +47,8 @@ export default function UploadCard() {
   const [uploadState, setUploadState] = useState<"idle" | "uploading" | "analyzing" | "success" | "error">("idle");
   const [uploadInfo, setUploadInfo] = useState<UploadResponse | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [etaSeconds, setEtaSeconds] = useState<number | null>(null);
 
   const reset = useCallback(() => {
     setStage("idle");
@@ -56,6 +58,8 @@ export default function UploadCard() {
     setUploadState("idle");
     setUploadInfo(null);
     setUploadError(null);
+    setProgress(0);
+    setEtaSeconds(null);
   }, []);
 
   const isAllowedFile = useCallback((file: File) => {
@@ -95,6 +99,8 @@ export default function UploadCard() {
     setUploadInfo(null);
     setAnalysisMessage("Uploading report to secure storage...");
     setAnalysisReportId(null);
+    setProgress(5);
+    setEtaSeconds(10);
 
     try {
       const formData = new FormData();
@@ -144,6 +150,8 @@ export default function UploadCard() {
       setAnalysisMessage("Analysis complete. Redirecting to detailed view...");
       setUploadState("success");
       setStage("complete");
+      setProgress(100);
+      setEtaSeconds(0);
       await refreshHistory();
       router.push(`/reports/${analysisData.reportId}`);
     } catch (error) {
@@ -192,6 +200,43 @@ export default function UploadCard() {
       setAnalysisMessage(null);
     }
   }, [stage]);
+
+  useEffect(() => {
+    let frameId: number | null = null;
+    const start = performance.now();
+
+    const animate = (base: number, target: number, durationSeconds: number) => {
+      const step = () => {
+        const elapsed = (performance.now() - start) / 1000;
+        const ratio = Math.min(1, elapsed / durationSeconds);
+        const value = base + (target - base) * ratio;
+        setProgress(value);
+        setEtaSeconds(Math.max(0, Math.ceil(durationSeconds - elapsed)));
+        if (ratio < 1) {
+          frameId = window.requestAnimationFrame(step);
+        }
+      };
+      step();
+    };
+
+    if (uploadState === "uploading") {
+      animate(5, 60, 6);
+    } else if (uploadState === "analyzing") {
+      animate(60, 95, 12);
+    } else if (uploadState === "success") {
+      setProgress(100);
+      setEtaSeconds(0);
+    } else if (uploadState === "idle" || uploadState === "error") {
+      setProgress(0);
+      setEtaSeconds(null);
+    }
+
+    return () => {
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+      }
+    };
+  }, [uploadState]);
 
   useEffect(() => {
     let cancelled = false;
@@ -288,7 +333,7 @@ export default function UploadCard() {
         )}
 
         {stage === "processing" && (
-          <div className="flex flex-col items-center gap-4">
+          <div className="flex w-full flex-col items-center gap-4">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-gradient text-white shadow-soft opacity-90">
               <svg
                 className="h-8 w-8 animate-spin"
@@ -309,7 +354,7 @@ export default function UploadCard() {
             </div>
             <div>
               <p className="text-sm font-semibold text-slate-900">
-                {uploadState === "success" ? "Analysis ready" : "Analyzing your report..."}
+                {uploadState === "uploading" ? "Uploading securely" : "Analyzing your report..."}
               </p>
               {analysisMessage && (
                 <p className="mt-1 text-xs text-slate-500">{analysisMessage}</p>
@@ -325,6 +370,22 @@ export default function UploadCard() {
                 {selectedFile}
               </span>
             )}
+            <div className="mt-4 w-full max-w-xl">
+              <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-400">
+                <span>{Math.min(100, Math.round(progress))}%</span>
+                {etaSeconds !== null && <span>~{Math.max(0, etaSeconds)}s remaining</span>}
+              </div>
+              <div className="mt-2 h-2 w-full rounded-full bg-slate-200" aria-hidden="true">
+                <div
+                  role="progressbar"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Math.round(Math.min(100, progress))}
+                  className="h-full rounded-full bg-brand-gradient transition-all duration-300"
+                  style={{ width: `${Math.min(100, progress)}%` }}
+                />
+              </div>
+            </div>
           </div>
         )}
 

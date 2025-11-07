@@ -14,6 +14,7 @@ export const bn = {
       upload: "আপলোড",
       about: "পরিচিতি",
       payments: "পেমেন্ট",
+      reports: "রিপোর্ট",
       account: "অ্যাকাউন্ট",
     },
     statuses: {
@@ -26,6 +27,7 @@ export const bn = {
       newUpload: "নতুন আপলোড",
       viewAccount: "অ্যাকাউন্ট দেখুন",
       viewDetails: "বিস্তারিত রিপোর্ট দেখুন",
+      viewReports: "রিপোর্ট দেখুন",
       analyzeAnother: "আরও একটি বিশ্লেষণ করুন",
       logOut: "লগ আউট",
       close: "বন্ধ করুন",
@@ -450,6 +452,33 @@ export const bn = {
       includes: "অন্তর্ভুক্ত {{credits}} ক্রেডিট",
       includesNone: "কোনও প্রিপেইড ক্রেডিট নেই",
     },
+  },
+  reportsPage: {
+    hero: {
+      badge: "রিপোর্ট ইতিহাস",
+      heading: "আপনার Carelytic রিপোর্ট",
+      description:
+        "Carelytic-এ বিশ্লেষিত প্রতিটি রিপোর্ট এক জায়গায় দেখুন এবং যেকোনো সময় সম্পূর্ণ ইনসাইটে ফিরে যান।",
+    },
+    actions: {
+      refresh: "ইতিহাস রিফ্রেশ করুন",
+    },
+    empty: {
+      heading: "এখনও কোনো রিপোর্ট নেই",
+      description:
+        "প্রথম মেডিকেল ফাইল আপলোড করুন। বিশ্লেষণ সম্পন্ন হলেই সেই রিপোর্ট এখানে দেখা যাবে।",
+      upload: "রিপোর্ট আপলোড করুন",
+    },
+    unauthenticated: {
+      heading: "রিপোর্ট দেখতে সাইন ইন করুন",
+      description:
+        "Carelytic শুধুমাত্র সাইন ইন করা সদস্যদের ইতিহাস নিরাপদে রাখে। রিপোর্ট দেখতে লগ ইন করুন বা নতুন অ্যাকাউন্ট তৈরি করুন।",
+      login: "লগ ইন",
+      signup: "অ্যাকাউন্ট তৈরি করুন",
+    },
+    highlightsLabel: "গুরুত্বপূর্ণ হাইলাইট",
+    analyzedOn: "{{date}} তারিখে বিশ্লেষিত",
+    untitled: "শিরোনামহীন রিপোর্ট",
   },
   login: {
     badge: "নিরাপদ লগইন",

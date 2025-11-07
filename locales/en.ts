@@ -14,6 +14,7 @@ export const en = {
       upload: "Upload",
       about: "About",
       payments: "Payments",
+      reports: "Reports",
       account: "Account",
     },
     statuses: {
@@ -26,6 +27,7 @@ export const en = {
       newUpload: "New upload",
       viewAccount: "View account",
       viewDetails: "View report details",
+      viewReports: "View reports",
       analyzeAnother: "Analyze another",
       logOut: "Log out",
       close: "Close",
@@ -451,6 +453,33 @@ export const en = {
       includes: "Includes {{credits}} credits",
       includesNone: "no prepaid credits",
     },
+  },
+  reportsPage: {
+    hero: {
+      badge: "Report history",
+      heading: "Your AI medical reports",
+      description:
+        "Browse every report you've analyzed with Carelytic and jump straight into the full AI insights whenever you need them.",
+    },
+    actions: {
+      refresh: "Refresh history",
+    },
+    empty: {
+      heading: "No reports yet",
+      description:
+        "Upload your first medical file to unlock AI summaries. Once a report is analyzed, it will appear here automatically.",
+      upload: "Upload a report",
+    },
+    unauthenticated: {
+      heading: "Sign in to view reports",
+      description:
+        "Carelytic securely stores your history for every signed-in member. Log in or create an account to see your reports.",
+      login: "Log in",
+      signup: "Create account",
+    },
+    highlightsLabel: "Key highlights",
+    analyzedOn: "Analyzed on {{date}}",
+    untitled: "Untitled report",
   },
   login: {
     badge: "Secure login",

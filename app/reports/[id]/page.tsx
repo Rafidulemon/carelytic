@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 import prisma from "@/lib/prisma";
 
 export const revalidate = 0;
@@ -49,12 +51,15 @@ export default async function ReportAnalysisPage({ params }: PageProps) {
   const completedAt = report.completedAt ?? report.uploadedAt;
 
   return (
-    <section className="mx-auto flex max-w-4xl flex-col gap-8 px-4 py-10 sm:px-6 lg:px-8">
-      <header className="flex flex-col gap-4">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 transition hover:text-slate-900"
-        >
+    <div className="min-h-screen bg-slate-50/80">
+      <Navbar />
+      <main className="mx-auto max-w-4xl px-4 pb-20 pt-16 sm:px-6 lg:px-8">
+        <section className="flex flex-col gap-8">
+          <header className="flex flex-col gap-4">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 transition hover:text-slate-900"
+            >
           <svg
             className="h-4 w-4"
             viewBox="0 0 24 24"
@@ -132,20 +137,23 @@ export default async function ReportAnalysisPage({ params }: PageProps) {
         </section>
       </article>
 
-      <footer className="flex flex-wrap items-center justify-between gap-3">
-        <Link
-          href="/"
-          className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
-        >
-          {report.analysis.language === "bn" ? "আরও রিপোর্ট আপলোড করুন" : "Upload another report"}
-        </Link>
-        <Link
-          href="/account"
-          className="rounded-full bg-brand-gradient px-4 py-2 text-xs font-semibold text-white shadow-soft transition hover:-translate-y-0.5 hover:shadow-lg"
-        >
-          {report.analysis.language === "bn" ? "ইতিহাস দেখুন" : "View report history"}
-        </Link>
-      </footer>
-    </section>
+          <footer className="flex flex-wrap items-center justify-between gap-3">
+            <Link
+              href="/"
+              className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+            >
+              {report.analysis.language === "bn" ? "আরও রিপোর্ট আপলোড করুন" : "Upload another report"}
+            </Link>
+            <Link
+              href="/account"
+              className="rounded-full bg-brand-gradient px-4 py-2 text-xs font-semibold text-white shadow-soft transition hover:-translate-y-0.5 hover:shadow-lg"
+            >
+              {report.analysis.language === "bn" ? "ইতিহাস দেখুন" : "View report history"}
+            </Link>
+          </footer>
+        </section>
+      </main>
+      <Footer />
+    </div>
   );
 }
