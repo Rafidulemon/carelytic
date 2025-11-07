@@ -4,10 +4,15 @@ import { File } from "node:buffer";
 import prisma from "@/lib/prisma";
 import { getR2Client } from "@/lib/r2";
 import { getOpenAIClient } from "@/lib/openai";
-import { ReportStatus } from "@prisma/client";
+import { CreditTransactionType, ReportStatus } from "@prisma/client";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+const MAX_UPLOAD_CREDIT_COST = 5;
+const ANALYSIS_CREDIT_COST = 5;
+const INSUFFICIENT_CREDITS_ERROR = "INSUFFICIENT_CREDITS";
 
 interface AnalyzePayload {
   userId?: string;
@@ -23,6 +28,15 @@ interface StructuredAnalysis {
   summary: string;
   detailed_analysis: string[] | string;
   next_steps: string[] | string;
+}
+
+function calculateUploadCredits(size: number) {
+  if (size <= 0) {
+    return 0;
+  }
+  const ratio = Math.min(size / MAX_FILE_SIZE_BYTES, 1);
+  const credits = Math.ceil(ratio * MAX_UPLOAD_CREDIT_COST);
+  return Math.max(1, Math.min(MAX_UPLOAD_CREDIT_COST, credits));
 }
 
 async function streamToBuffer(stream: unknown) {
@@ -120,6 +134,10 @@ export async function POST(request: Request) {
       );
     }
 
+    const uploadCredits = calculateUploadCredits(size);
+    const analysisCredits = ANALYSIS_CREDIT_COST;
+    const totalCreditsRequired = uploadCredits + analysisCredits;
+
     const language = normalizeLanguage(rawLanguage);
 
     const { client, config } = getR2Client();
@@ -133,7 +151,7 @@ export async function POST(request: Request) {
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true },
+      select: { id: true, credits: true },
     });
 
     if (!user) {
@@ -143,6 +161,15 @@ export async function POST(request: Request) {
             "We couldn't find your account. Please sign out and sign back in before uploading again.",
         },
         { status: 404 }
+      );
+    }
+
+    if (user.credits < totalCreditsRequired) {
+      return NextResponse.json(
+        {
+          error: `You need ${totalCreditsRequired} credits to analyze this report but only have ${user.credits}. Please add more credits and try again.`,
+        },
+        { status: 402 }
       );
     }
 
@@ -230,28 +257,71 @@ export async function POST(request: Request) {
     const details = formatText(parsed.detailed_analysis);
     const actions = formatText(parsed.next_steps);
 
-    const analysis = await prisma.reportAnalysis.create({
-      data: {
-        reportId: report.id,
-        language,
-        summary: parsed.summary,
-        details,
-        actions,
-      },
-    });
+    const attentionCount = Array.isArray(parsed.next_steps)
+      ? parsed.next_steps.length
+      : parsed.next_steps
+          .split("\n")
+          .filter((line) => line.trim().length > 0).length;
 
-    await prisma.report.update({
-      where: { id: report.id },
-      data: {
-        status: ReportStatus.COMPLETE,
-        summary: parsed.summary,
-        attentionCount: Array.isArray(parsed.next_steps)
-          ? parsed.next_steps.length
-          : parsed.next_steps
-              .split("\n")
-              .filter((line) => line.trim().length > 0).length,
-        completedAt: new Date(),
-      },
+    const { analysis, remainingCredits } = await prisma.$transaction(async (tx) => {
+      const analysisRecord = await tx.reportAnalysis.create({
+        data: {
+          reportId: report.id,
+          language,
+          summary: parsed.summary,
+          details,
+          actions,
+        },
+      });
+
+      await tx.report.update({
+        where: { id: report.id },
+        data: {
+          status: ReportStatus.COMPLETE,
+          summary: parsed.summary,
+          attentionCount,
+          completedAt: new Date(),
+        },
+      });
+
+      const debitResult = await tx.user.updateMany({
+        where: {
+          id: userId,
+          credits: {
+            gte: totalCreditsRequired,
+          },
+        },
+        data: {
+          credits: {
+            decrement: totalCreditsRequired,
+          },
+        },
+      });
+
+      if (debitResult.count === 0) {
+        throw new Error(INSUFFICIENT_CREDITS_ERROR);
+      }
+
+      const updatedUser = await tx.user.findUnique({
+        where: { id: userId },
+        select: { credits: true },
+      });
+
+      if (!updatedUser) {
+        throw new Error("User not found after credit deduction.");
+      }
+
+      await tx.creditTransaction.create({
+        data: {
+          userId,
+          reportId: report.id,
+          amount: totalCreditsRequired,
+          type: CreditTransactionType.REDEMPTION,
+          description: `Report analysis charge (${uploadCredits} upload + ${analysisCredits} analysis credits)`,
+        },
+      });
+
+      return { analysis: analysisRecord, remainingCredits: updatedUser.credits };
     });
 
     return NextResponse.json({
@@ -263,9 +333,23 @@ export async function POST(request: Request) {
         language,
         createdAt: analysis.createdAt,
       },
+      credits: {
+        upload: uploadCredits,
+        analysis: analysisCredits,
+        total: totalCreditsRequired,
+        remaining: remainingCredits,
+      },
     });
   } catch (error) {
-    console.error("Report analysis failed", error);
+    const isCreditError =
+      error instanceof Error && error.message === INSUFFICIENT_CREDITS_ERROR;
+
+    if (!isCreditError) {
+      console.error("Report analysis failed", error);
+    } else {
+      console.warn("Report analysis aborted due to insufficient credits", error);
+    }
+
     if (reportId) {
       await prisma.report.update({
         where: { id: reportId },
@@ -274,6 +358,17 @@ export async function POST(request: Request) {
         },
       });
     }
+
+    if (isCreditError) {
+      return NextResponse.json(
+        {
+          error:
+            "We couldn't deduct the required credits to complete this analysis. Please top up your balance and try again.",
+        },
+        { status: 402 }
+      );
+    }
+
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to analyze report." },
       { status: 500 }

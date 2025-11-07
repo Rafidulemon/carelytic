@@ -37,6 +37,7 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [liveCredits, setLiveCredits] = useState<number | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -47,6 +48,48 @@ export default function Navbar() {
   }, []);
 
   const sessionUser = isHydrated ? user : null;
+  const sessionUserId = sessionUser?.id;
+  useEffect(() => {
+    if (!sessionUserId || typeof window === "undefined") {
+      setLiveCredits(null);
+      return;
+    }
+
+    let cancelled = false;
+    let intervalId: number | null = null;
+
+    const fetchCredits = async () => {
+      try {
+        const response = await fetch(
+          `/api/users/credits?userId=${encodeURIComponent(sessionUserId)}`,
+          { cache: "no-store" }
+        );
+        if (!response.ok) {
+          throw new Error("Request failed");
+        }
+        const data = (await response.json()) as { credits?: number };
+        if (!cancelled && typeof data.credits === "number") {
+          setLiveCredits(data.credits);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.warn("Failed to refresh credits", error);
+        }
+      }
+    };
+
+    void fetchCredits();
+    intervalId = window.setInterval(() => {
+      void fetchCredits();
+    }, 15000);
+
+    return () => {
+      cancelled = true;
+      if (intervalId !== null) {
+        window.clearInterval(intervalId);
+      }
+    };
+  }, [sessionUserId]);
 
   const closeMenu = () => setMenuOpen(false);
 
@@ -75,6 +118,7 @@ export default function Navbar() {
   }, [sessionUser, t]);
 
   const creditsLabel = t("common.credits.label");
+  const creditsDisplay = sessionUser ? liveCredits ?? sessionUser.credits : null;
   const displayName =
     sessionUser?.name?.trim() || (sessionUser ? t("navbar.text.demoUser") : t("navbar.text.guest"));
   const signedInLabel = sessionUser ? (sessionUser.name ? t("navbar.text.signedInAs") : t("navbar.text.signedIn")) : "";
@@ -165,7 +209,7 @@ export default function Navbar() {
                 <path d="M12 3v18" />
                 <path d="M8 5h8a3 3 0 013 3v8a3 3 0 01-3 3H8a3 3 0 01-3-3V8a3 3 0 013-3z" />
               </svg>
-              {sessionUser.credits} {creditsLabel}
+              {creditsDisplay ?? 0} {creditsLabel}
             </span>
           )}
           {sessionUser ? (
@@ -296,7 +340,7 @@ export default function Navbar() {
                   {getReportsAnalyzedText(sessionUser.history.length, t)}
                 </p>
                 <p className="mt-1 text-xs text-slate-500">
-                  {t("navbar.text.balance")}: <span className="font-semibold text-slate-700">{sessionUser.credits}</span> {creditsLabel}
+                  {t("navbar.text.balance")}: <span className="font-semibold text-slate-700">{creditsDisplay ?? 0}</span> {creditsLabel}
                 </p>
               </div>
               <Link
